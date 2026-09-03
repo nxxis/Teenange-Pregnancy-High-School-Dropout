@@ -1,0 +1,35 @@
+CLAUDE.md
+
+# Internal process/decision tracking -- kept locally for continuity,
+# not part of the public-facing project
+docs/decisions_log.md
+docs/known_issues.md
+docs/deviations_from_design.md
+docs/data_sources.md
+legacy/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Local-only scratch files (never committed data mistakes to git; keep it that way)
+*.tmp
+_archive_not_needed/

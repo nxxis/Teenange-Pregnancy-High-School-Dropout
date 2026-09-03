@@ -1,0 +1,31 @@
+state,dropout_rate,rank
+Hawaii,1.3813854886138277,lowest
+New Jersey,1.8763679763861991,lowest
+Connecticut,2.1547887000905765,lowest
+Massachusetts,2.358973246408568,lowest
+California,2.374835954522544,lowest
+Idaho,5.76352080879466,highest
+New Mexico,5.996453459432553,highest
+Louisiana,6.160656545987873,highest
+Oregon,6.242847372234599,highest
+Indiana,6.641638629344962,highest
+New Jersey,4.045995435774832,lowest
+Connecticut,4.301380991064176,lowest
+Virginia,4.361211873995406,lowest
+Delaware,4.3876690737143065,lowest
+Massachusetts,4.475140662609042,lowest
+Utah,8.20664603793892,highest
+Louisiana,8.680339032092311,highest
+Oklahoma,10.184807024709006,highest
+Wisconsin,10.779267989362312,highest
+Nevada,10.898321210447168,highest
+Hawaii,4.265360641139805,lowest
+Rhode Island,5.36346120161149,lowest
+District of Columbia,5.437853107344632,lowest
+California,5.894145709970513,lowest
+New Jersey,6.169778528947494,lowest
+Kansas,10.62150393842039,highest
+Tennessee,10.749212941255276,highest
+Georgia,11.5250746064934,highest
+Alabama,14.11280561607359,highest
+Mississippi,15.403920504646273,highest

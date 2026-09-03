@@ -1,0 +1,13 @@
+metric,value,note
+n_rows_total,408,
+n_states,51,expected 51 (50 states + DC)
+n_race_categories,8,expected 8
+dropout_flag__reliable,273,66.9% of all rows
+dropout_flag__suppressed_reporting_standards_not_met,89,21.8% of all rows
+dropout_flag__unreliable_cv_30_50pct,46,11.3% of all rows
+natality_flag__reliable,219,53.7% of all rows
+natality_flag__nan,102,25.0% of all rows
+natality_flag__suppressed_or_incomplete_5yr_window,87,21.3% of all rows
+n_rows_both_dropout_and_fertility_reliable,174,42.6% of all rows -- the real usable N for RQ3
+dropout_rate_range,0.67 to 20.83,"sanity check: should be a plausible percent, not per-1000"
+teen_fertility_rate_range,1.59 to 89.49,"sanity check: should be plausible per-1,000, not a percent"

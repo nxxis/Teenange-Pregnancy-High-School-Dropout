@@ -1,0 +1,52 @@
+state,poverty_rate,poverty_rate_moe,insurance_rate,insurance_rate_moe,fips,acs_data_source,acs_source_period
+Alabama,22.3,0.6,3.4,0.2,01,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Alaska,13.1,0.8,8.8,0.6,02,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Arizona,18.8,0.5,8.7,0.3,04,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Arkansas,21.9,0.6,5.1,0.3,05,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+California,16.2,0.2,3.3,0.1,06,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Colorado,11.4,0.4,5.0,0.2,08,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Connecticut,13.3,0.6,2.8,0.2,09,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Delaware,17.3,1.2,3.9,0.5,10,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+District of Columbia,22.8,1.8,2.2,0.4,11,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Florida,18.2,0.4,7.5,0.2,12,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Georgia,19.6,0.4,7.5,0.2,13,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Hawaii,12.0,0.8,2.7,0.3,15,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Idaho,13.6,0.7,5.8,0.3,16,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Illinois,15.8,0.3,3.3,0.1,17,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Indiana,16.8,0.4,6.3,0.2,18,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Iowa,13.0,0.5,2.9,0.2,19,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Kansas,14.1,0.5,5.2,0.3,20,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Kentucky,21.4,0.5,4.1,0.2,21,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Louisiana,26.2,0.7,4.0,0.3,22,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Maine,13.8,0.9,4.9,0.4,23,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Maryland,11.9,0.4,3.7,0.2,24,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Massachusetts,12.1,0.4,1.5,0.1,25,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Michigan,18.2,0.3,3.1,0.1,26,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Minnesota,11.3,0.3,3.2,0.1,27,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Mississippi,27.1,0.7,5.5,0.3,28,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Missouri,16.9,0.5,6.0,0.2,29,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Montana,15.2,0.8,6.5,0.5,30,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Nebraska,12.1,0.5,5.4,0.3,31,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Nevada,17.5,0.6,7.9,0.4,32,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+New Hampshire,9.3,0.7,3.1,0.4,33,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+New Jersey,13.5,0.3,4.0,0.2,34,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+New Mexico,24.5,0.9,5.6,0.3,35,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+New York,18.4,0.3,2.5,0.1,36,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+North Carolina,19.3,0.4,5.5,0.2,37,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+North Dakota,11.1,0.9,7.0,0.7,38,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Ohio,18.6,0.4,4.6,0.1,39,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Oklahoma,20.7,0.4,8.4,0.3,40,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Oregon,14.0,0.5,3.5,0.2,41,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Pennsylvania,16.4,0.3,4.6,0.2,42,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Rhode Island,15.2,1.1,2.6,0.5,44,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+South Carolina,20.8,0.5,5.2,0.3,45,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+South Dakota,15.8,0.8,6.7,0.5,46,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Tennessee,19.9,0.5,5.2,0.2,47,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Texas,19.6,0.3,11.5,0.2,48,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Utah,9.3,0.4,7.2,0.3,49,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Vermont,11.4,0.8,1.6,0.3,50,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Virginia,13.0,0.3,4.9,0.2,51,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Washington,12.4,0.4,2.9,0.2,53,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+West Virginia,22.4,0.9,3.0,0.3,54,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Wisconsin,13.5,0.4,3.9,0.1,55,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
+Wyoming,12.8,1.1,9.3,1.0,56,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
