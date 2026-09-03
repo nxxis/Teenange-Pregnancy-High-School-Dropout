@@ -10,7 +10,7 @@ Dep. Variable:           dropout_rate   R-squared:                       0.477
 Model:                            OLS   Adj. R-squared:                  0.474
 Method:                 Least Squares   F-statistic:                     177.8
 Date:                Thu, 03 Sep 2026   Prob (F-statistic):           2.99e-29
-Time:                        16:56:51   Log-Likelihood:                -438.64
+Time:                        19:44:49   Log-Likelihood:                -438.64
 No. Observations:                 197   AIC:                             881.3
 Df Residuals:                     195   BIC:                             887.8
 Df Model:                           1                                         
@@ -37,7 +37,7 @@ Dep. Variable:           dropout_rate   R-squared:                       0.505
 Model:                            OLS   Adj. R-squared:                  0.489
 Method:                 Least Squares   F-statistic:                     32.29
 Date:                Thu, 03 Sep 2026   Prob (F-statistic):           1.20e-26
-Time:                        16:56:51   Log-Likelihood:                -433.22
+Time:                        19:44:49   Log-Likelihood:                -433.22
 No. Observations:                 197   AIC:                             880.4
 Df Residuals:                     190   BIC:                             903.4
 Df Model:                           6                                         
@@ -69,7 +69,72 @@ Dep. Variable:           dropout_rate   R-squared:                       0.612
 Model:                            WLS   Adj. R-squared:                  0.600
 Method:                 Least Squares   F-statistic:                     49.95
 Date:                Thu, 03 Sep 2026   Prob (F-statistic):           1.54e-36
-Time:                        16:56:51   Log-Likelihood:                -413.97
+Time:                        19:44:49   Log-Likelihood:                -413.97
+No. Observations:                 197   AIC:                             841.9
+Df Residuals:                     190   BIC:                             864.9
+Df Model:                           6                                         
+Covariance Type:            nonrobust                                         
+=================================================================================================
+                                    coef    std err          t      P>|t|      [0.025      0.975]
+-------------------------------------------------------------------------------------------------
+Intercept                         0.8874      0.435      2.041      0.043       0.030       1.745
+C(census_region)[T.Northeast]    -0.4691      0.230     -2.039      0.043      -0.923      -0.015
+C(census_region)[T.South]        -0.9568      0.236     -4.054      0.000      -1.422      -0.491
+C(census_region)[T.West]         -0.7284      0.222     -3.282      0.001      -1.166      -0.291
+teen_fertility_rate               0.1542      0.012     12.553      0.000       0.130       0.178
+poverty_rate                      0.0746      0.027      2.773      0.006       0.022       0.128
+insurance_rate                    0.0258      0.039      0.658      0.511      -0.052       0.103
+==============================================================================
+Omnibus:                       56.986   Durbin-Watson:                   1.856
+Prob(Omnibus):                  0.000   Jarque-Bera (JB):              358.715
+Skew:                          -0.901   Prob(JB):                     1.28e-78
+Kurtosis:                       9.360   Cond. No.                         138.
+==============================================================================
+
+Notes:
+[1] Standard Errors assume that the covariance matrix of the errors is correctly specified.
+
+--- Multivariable WLS, standard errors clustered by state ---
+(accounts for up to 8 non-independent race-group rows per state)
+                            WLS Regression Results                            
+==============================================================================
+Dep. Variable:           dropout_rate   R-squared:                       0.612
+Model:                            WLS   Adj. R-squared:                  0.600
+Method:                 Least Squares   F-statistic:                     47.43
+Date:                Thu, 03 Sep 2026   Prob (F-statistic):           5.93e-19
+Time:                        19:44:49   Log-Likelihood:                -413.97
+No. Observations:                 197   AIC:                             841.9
+Df Residuals:                     190   BIC:                             864.9
+Df Model:                           6                                         
+Covariance Type:              cluster                                         
+=================================================================================================
+                                    coef    std err          z      P>|z|      [0.025      0.975]
+-------------------------------------------------------------------------------------------------
+Intercept                         0.8874      0.526      1.689      0.091      -0.143       1.917
+C(census_region)[T.Northeast]    -0.4691      0.360     -1.304      0.192      -1.174       0.236
+C(census_region)[T.South]        -0.9568      0.268     -3.571      0.000      -1.482      -0.432
+C(census_region)[T.West]         -0.7284      0.509     -1.431      0.152      -1.726       0.269
+teen_fertility_rate               0.1542      0.013     11.948      0.000       0.129       0.179
+poverty_rate                      0.0746      0.031      2.411      0.016       0.014       0.135
+insurance_rate                    0.0258      0.098      0.264      0.792      -0.166       0.218
+==============================================================================
+Omnibus:                       56.986   Durbin-Watson:                   1.856
+Prob(Omnibus):                  0.000   Jarque-Bera (JB):              358.715
+Skew:                          -0.901   Prob(JB):                     1.28e-78
+Kurtosis:                       9.360   Cond. No.                         138.
+==============================================================================
+
+Notes:
+[1] Standard Errors are robust to cluster correlation (cluster)
+
+--- Sensitivity: WLS excluding 0 high-leverage points (Cook's distance > 4/n) ---
+                            WLS Regression Results                            
+==============================================================================
+Dep. Variable:           dropout_rate   R-squared:                       0.612
+Model:                            WLS   Adj. R-squared:                  0.600
+Method:                 Least Squares   F-statistic:                     49.95
+Date:                Thu, 03 Sep 2026   Prob (F-statistic):           1.54e-36
+Time:                        19:44:49   Log-Likelihood:                -413.97
 No. Observations:                 197   AIC:                             841.9
 Df Residuals:                     190   BIC:                             864.9
 Df Model:                           6                                         
@@ -105,7 +170,7 @@ Dep. Variable:           dropout_rate   R-squared:                       0.534
 Model:                            OLS   Adj. R-squared:                  0.532
 Method:                 Least Squares   F-statistic:                     231.8
 Date:                Thu, 03 Sep 2026   Prob (F-statistic):           2.28e-35
-Time:                        16:56:51   Log-Likelihood:                -452.36
+Time:                        19:44:49   Log-Likelihood:                -452.36
 No. Observations:                 204   AIC:                             908.7
 Df Residuals:                     202   BIC:                             915.4
 Df Model:                           1                                         
@@ -132,7 +197,7 @@ Dep. Variable:           dropout_rate   R-squared:                       0.557
 Model:                            OLS   Adj. R-squared:                  0.544
 Method:                 Least Squares   F-statistic:                     41.31
 Date:                Thu, 03 Sep 2026   Prob (F-statistic):           2.25e-32
-Time:                        16:56:51   Log-Likelihood:                -447.23
+Time:                        19:44:49   Log-Likelihood:                -447.23
 No. Observations:                 204   AIC:                             908.5
 Df Residuals:                     197   BIC:                             931.7
 Df Model:                           6                                         
@@ -164,7 +229,72 @@ Dep. Variable:           dropout_rate   R-squared:                       0.612
 Model:                            WLS   Adj. R-squared:                  0.600
 Method:                 Least Squares   F-statistic:                     51.70
 Date:                Thu, 03 Sep 2026   Prob (F-statistic):           6.66e-38
-Time:                        16:56:51   Log-Likelihood:                -433.99
+Time:                        19:44:49   Log-Likelihood:                -433.99
+No. Observations:                 204   AIC:                             882.0
+Df Residuals:                     197   BIC:                             905.2
+Df Model:                           6                                         
+Covariance Type:            nonrobust                                         
+=================================================================================================
+                                    coef    std err          t      P>|t|      [0.025      0.975]
+-------------------------------------------------------------------------------------------------
+Intercept                         0.8897      0.428      2.078      0.039       0.045       1.734
+C(census_region)[T.Northeast]    -0.4673      0.227     -2.061      0.041      -0.914      -0.020
+C(census_region)[T.South]        -0.9554      0.233     -4.109      0.000      -1.414      -0.497
+C(census_region)[T.West]         -0.7160      0.218     -3.279      0.001      -1.147      -0.285
+teen_fertility_rate               0.1547      0.012     12.836      0.000       0.131       0.179
+poverty_rate                      0.0742      0.026      2.802      0.006       0.022       0.126
+insurance_rate                    0.0251      0.039      0.649      0.517      -0.051       0.101
+==============================================================================
+Omnibus:                       62.058   Durbin-Watson:                   1.813
+Prob(Omnibus):                  0.000   Jarque-Bera (JB):              419.999
+Skew:                          -0.948   Prob(JB):                     6.29e-92
+Kurtosis:                       9.769   Cond. No.                         138.
+==============================================================================
+
+Notes:
+[1] Standard Errors assume that the covariance matrix of the errors is correctly specified.
+
+--- Multivariable WLS, standard errors clustered by state ---
+(accounts for up to 8 non-independent race-group rows per state)
+                            WLS Regression Results                            
+==============================================================================
+Dep. Variable:           dropout_rate   R-squared:                       0.612
+Model:                            WLS   Adj. R-squared:                  0.600
+Method:                 Least Squares   F-statistic:                     49.06
+Date:                Thu, 03 Sep 2026   Prob (F-statistic):           2.91e-19
+Time:                        19:44:49   Log-Likelihood:                -433.99
+No. Observations:                 204   AIC:                             882.0
+Df Residuals:                     197   BIC:                             905.2
+Df Model:                           6                                         
+Covariance Type:              cluster                                         
+=================================================================================================
+                                    coef    std err          z      P>|z|      [0.025      0.975]
+-------------------------------------------------------------------------------------------------
+Intercept                         0.8897      0.523      1.700      0.089      -0.136       1.916
+C(census_region)[T.Northeast]    -0.4673      0.359     -1.300      0.193      -1.171       0.237
+C(census_region)[T.South]        -0.9554      0.268     -3.568      0.000      -1.480      -0.431
+C(census_region)[T.West]         -0.7160      0.505     -1.417      0.157      -1.706       0.274
+teen_fertility_rate               0.1547      0.013     12.098      0.000       0.130       0.180
+poverty_rate                      0.0742      0.031      2.405      0.016       0.014       0.135
+insurance_rate                    0.0251      0.097      0.258      0.797      -0.166       0.216
+==============================================================================
+Omnibus:                       62.058   Durbin-Watson:                   1.813
+Prob(Omnibus):                  0.000   Jarque-Bera (JB):              419.999
+Skew:                          -0.948   Prob(JB):                     6.29e-92
+Kurtosis:                       9.769   Cond. No.                         138.
+==============================================================================
+
+Notes:
+[1] Standard Errors are robust to cluster correlation (cluster)
+
+--- Sensitivity: WLS excluding 0 high-leverage points (Cook's distance > 4/n) ---
+                            WLS Regression Results                            
+==============================================================================
+Dep. Variable:           dropout_rate   R-squared:                       0.612
+Model:                            WLS   Adj. R-squared:                  0.600
+Method:                 Least Squares   F-statistic:                     51.70
+Date:                Thu, 03 Sep 2026   Prob (F-statistic):           6.66e-38
+Time:                        19:44:49   Log-Likelihood:                -433.99
 No. Observations:                 204   AIC:                             882.0
 Df Residuals:                     197   BIC:                             905.2
 Df Model:                           6                                         

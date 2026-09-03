@@ -39,6 +39,30 @@ STATE_FIPS = {
 
 US_STATES_PLUS_DC = set(STATE_FIPS.keys())
 
+# USPS postal abbreviations, needed for choropleth map location codes
+# (distinct from FIPS -- kept separate since they serve different purposes).
+STATE_ABBREV = {
+    "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
+    "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
+    "District of Columbia": "DC", "Florida": "FL", "Georgia": "GA", "Hawaii": "HI",
+    "Idaho": "ID", "Illinois": "IL", "Indiana": "IN", "Iowa": "IA", "Kansas": "KS",
+    "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
+    "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN", "Mississippi": "MS",
+    "Missouri": "MO", "Montana": "MT", "Nebraska": "NE", "Nevada": "NV",
+    "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM", "New York": "NY",
+    "North Carolina": "NC", "North Dakota": "ND", "Ohio": "OH", "Oklahoma": "OK",
+    "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI", "South Carolina": "SC",
+    "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX", "Utah": "UT",
+    "Vermont": "VT", "Virginia": "VA", "Washington": "WA", "West Virginia": "WV",
+    "Wisconsin": "WI", "Wyoming": "WY",
+}
+
+
+def add_state_abbrev(df: pd.DataFrame, state_col: str = "state") -> pd.DataFrame:
+    df = df.copy()
+    df["state_abbrev"] = df[state_col].map(STATE_ABBREV)
+    return df
+
 # Standard Census Bureau 4-region scheme, used for RQ4's geographic
 # comparison in place of state fixed effects (51 state dummies would leave
 # too few residual degrees of freedom at this sample size). DC is grouped

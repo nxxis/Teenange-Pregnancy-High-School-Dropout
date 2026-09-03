@@ -30,9 +30,6 @@ context.
 7. Which features contribute most to model predictions, and are
    prediction errors materially different across demographic groups?
 
-Full methodology, hypotheses, and analytical design:
-[`docs/design_document.pdf`](docs/design_document.pdf).
-
 ## Data sources
 
 | Source | Measure | Coverage |
@@ -76,7 +73,6 @@ and cannot answer:
 │   └── modeling.py              # machine learning + explainability
 ├── figures/, tables/, results/  # generated outputs (run the scripts to populate)
 ├── docs/
-│   ├── design_document.pdf      # methodology and analytical design
 │   └── data_dictionary.xlsx     # every field in the processed data, defined
 ├── requirements.txt
 └── README.md

@@ -6,7 +6,7 @@ docs/decisions_log.md
 docs/known_issues.md
 docs/deviations_from_design.md
 docs/data_sources.md
-legacy/
+docs/design_document.pdf
 
 # Python
 __pycache__/
