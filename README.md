@@ -56,8 +56,10 @@ and cannot answer:
 - **The fertility-association analysis (RQ3 onward) covers non-Hispanic
   race categories only.** CDC WONDER's teen fertility data does not break
   out a Hispanic-specific rate, so Hispanic dropout rates are reported and
-  compared (RQ2), but cannot be linked to a fertility value in the same
-  way as other groups.
+  compared (RQ2), but cannot be linked to a fertility value the same way
+  as other groups. Separately, Pacific Islander is reported descriptively
+  only (usable data in just 4 of 51 states) and excluded from regression
+  and modeling.
 
 ## Repository structure
 
@@ -67,10 +69,11 @@ and cannot answer:
 │   ├── interim/
 │   └── processed/               # cleaned + merged analytical datasets
 ├── src/
-│   ├── harmonization.py         # FIPS + race/ethnicity crosswalks
+│   ├── harmonization.py         # FIPS, state abbreviation, and race/ethnicity crosswalks
 │   ├── data_cleaning.py         # per-source cleaning + final merge
+│   ├── plotting.py              # shared figure style/palette
 │   ├── analysis.py              # data quality, disparity, and association analysis
-│   └── modeling.py              # machine learning + explainability
+│   └── modeling.py              # machine learning + fairness/explainability
 ├── figures/, tables/, results/  # generated outputs (run the scripts to populate)
 ├── docs/
 │   └── data_dictionary.xlsx     # every field in the processed data, defined
@@ -88,14 +91,21 @@ python3 src/data_cleaning.py
 # -> data/processed/master_analytical_dataset.csv
 # -> docs/data_dictionary.xlsx
 
-# 2. Data quality report, disparity gaps, correlation, regression
+# 2. Data quality, disparity, and association analysis
 python3 src/analysis.py
 # -> results/phase1_data_quality_report.csv
 # -> results/phase3_regression_summary.txt
-# -> tables/phase1_summary_statistics.csv
-# -> tables/phase2_racial_disparity_gaps.csv
-# -> tables/phase2_state_rankings.csv
-# -> tables/phase3_correlation.csv
+# -> tables/phase1_summary_statistics.csv, phase2_racial_disparity_gaps.csv,
+#    phase2_state_rankings.csv, phase3_correlation.csv
+# -> figures/phase2_disparity_gaps.png, phase2_map_dropout_rate.png,
+#    phase2_map_hispanic_white_gap.png, phase2_map_black_white_gap.png,
+#    phase3_fertility_dropout_scatter.png
+
+# 3. Machine learning + fairness/explainability
+python3 src/modeling.py
+# -> results/phase4_model_comparison.csv, phase5_fairness_report.csv
+# -> figures/phase5_fairness_errors.png, phase5_shap_model_a_no_race.png,
+#    phase5_shap_model_b_with_race.png
 ```
 
 Raw data files are included in `data/raw/` so the pipeline runs
@@ -106,16 +116,36 @@ immediately after cloning, with no re-downloading required.
 From the merged analytical dataset (408 state × race-ethnicity rows; 174
 with sufficient data quality on both sides for the core association test):
 
-- **Teen fertility rate and dropout rate are strongly correlated**:
-  Pearson r = 0.74 (p < 10⁻³⁰, n = 174).
-- In a multivariable regression weighted by estimate reliability and
-  controlling for poverty, insurance coverage, and Census region, teen
-  fertility rate remains a significant positive predictor of dropout rate
-  (p < 0.001), as does poverty rate (p = 0.006). Health-insurance coverage
-  is not a significant predictor in this model.
-- **Racial dropout disparities are substantial**: the median Black-White
-  gap is +2.1 percentage points (a 1.55x ratio); the median Hispanic-White
-  gap is +4.2 percentage points (a 2.0x ratio).
+**Association.** Teen fertility rate and dropout rate are strongly
+correlated: Pearson r = 0.74 (p < 10⁻³⁰, n = 174). In a multivariable
+regression weighted by estimate reliability and controlling for poverty,
+insurance coverage, and Census region, teen fertility rate remains a
+significant positive predictor of dropout rate (p < 0.001), as does
+poverty rate (p = 0.006); health-insurance coverage is not significant.
+The fertility effect holds under standard errors clustered by state
+(accounting for the fact that each state contributes multiple
+non-independent race-group rows) and is not driven by a handful of
+extreme observations — a Cook's-distance sensitivity check flags zero
+high-leverage points in the primary sample.
+
+**Disparities.** Racial dropout gaps are substantial: the median
+Black-White gap is +2.1 percentage points (a 1.55x ratio); the median
+Hispanic-White gap is +4.2 percentage points (a 2.0x ratio). Both vary
+considerably by state (see `figures/phase2_map_black_white_gap.png` and
+`phase2_map_hispanic_white_gap.png`).
+
+**Fairness.** A random forest trained on fertility, poverty, insurance,
+and region — with race excluded entirely from its inputs — still shows
+sharply uneven errors across race groups. American Indian/Alaska Native
+has a mean absolute error 3-7x larger than every other group, with a
+strong systematic under-prediction bias (Kruskal-Wallis test on residual
+distributions: p < 0.0001). Adding race back as a feature, `race_ethnicity`
+ranks 2nd of 5 features by SHAP importance — behind fertility rate but
+ahead of poverty and insurance — meaning race carries predictive weight
+not explained by the measured socioeconomic context. This fairness
+analysis is necessarily silent on Hispanic students, since no model can
+be built for a group with no fertility input at all; that is a scope
+limitation of the analysis, not a finding about the group.
 
 ## Data quality
 
@@ -133,3 +163,22 @@ collapsing it to zero or a blank:
   NCES's, so cross-source race comparisons are approximate
 
 Full field-by-field documentation: `docs/data_dictionary.xlsx`.
+
+## Modeling approach
+
+Two random forests are trained on the same grouped 5-fold cross-validation
+split (grouped by state, since race-rows within a state share identical
+poverty/insurance/region values — a random row split would leak
+information across train/test):
+
+- **Model A** (fairness evaluation): fertility, poverty, insurance, and
+  region only. Used to check whether a model that never sees race still
+  produces racially uneven errors.
+- **Model B** (residual disparity attribution): Model A's features plus
+  race. Used to measure how much predictive weight race carries once the
+  measured socioeconomic/fertility context is already accounted for.
+
+Both a mean baseline and a linear model are reported alongside the random
+forest for comparison. All models are weighted by inverse-variance
+(`1/dropout_se²`), consistent with the Phase 3 regression. A fixed random
+seed (42) is used throughout for reproducibility.
