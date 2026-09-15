@@ -18,6 +18,8 @@ Phase 1-3 analysis (design_document.pdf section 10.1-10.3):
     that should be trusted for interpretation.
 """
 
+import os
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -297,6 +299,8 @@ def figure_state_map(df: pd.DataFrame, value_col: str, race: str, title: str,
         sub, locations="state_abbrev", locationmode="USA-states",
         color=value_col, scope="usa", color_continuous_scale=color_scale,
         labels={value_col: colorbar_title},
+        hover_name="state",
+        hover_data={"state_abbrev": False, value_col: ":.2f"},
     )
     fig.update_layout(
         title=dict(text=title, x=0.5, font=dict(size=18, family="Arial", color="black")),
@@ -306,6 +310,64 @@ def figure_state_map(df: pd.DataFrame, value_col: str, race: str, title: str,
         coloraxis_colorbar=dict(title=colorbar_title),
     )
     fig.write_image(out_path, width=1000, height=650, scale=2)
+
+    html_path = os.path.splitext(out_path)[0] + ".html"
+    fig.write_html(html_path, include_plotlyjs="cdn")
+    return html_path
+
+
+def figure_fertility_map_small_multiples(
+    df: pd.DataFrame,
+    races: tuple[str, ...] = (
+        "White", "Black", "American Indian/Alaska Native",
+        "Asian", "Two or more races", "Pacific Islander",
+    ),
+    out_path: str = "figures/phase2_map_fertility_rate_by_race.png",
+):
+    """Side-by-side state maps of teen_fertility_rate, one panel per race, on
+    a shared color scale. Covers every race in FERTILITY_ELIGIBLE_RACES --
+    the same set the phase3 regression uses -- rather than an all-race rate
+    that CDC WONDER never provides (Hispanic has none; see module
+    docstring). Pacific Islander is listed last: it's the SPARSE_RACES
+    group excluded from the primary regression, so its panel is mostly gray
+    (12 of 51 states) -- shown here descriptively, consistent with how the
+    design doc treats it everywhere else."""
+    sub = df[df["race_ethnicity"].isin(races)][
+        ["state", "race_ethnicity", "teen_fertility_rate"]
+    ].dropna()
+    sub = add_state_abbrev(sub)
+
+    # Color scale is scaled to the non-sparse races only: Pacific Islander's
+    # small-population estimates (e.g. Arkansas at ~89/1,000, from 230
+    # births over a base of 2,570) are individually "reliable" per the
+    # source's own flag but volatile enough that including them here would
+    # wash out the color resolution for every other panel. Its cells still
+    # plot on the shared scale -- they just clip to the darkest color
+    # instead of stretching it.
+    scale_sub = sub[~sub["race_ethnicity"].isin(SPARSE_RACES)]
+    fig = px.choropleth(
+        sub, locations="state_abbrev", locationmode="USA-states",
+        color="teen_fertility_rate", scope="usa", color_continuous_scale="Purples",
+        facet_col="race_ethnicity", facet_col_wrap=3,
+        category_orders={"race_ethnicity": list(races)},
+        range_color=(scale_sub["teen_fertility_rate"].min(), scale_sub["teen_fertility_rate"].max()),
+        labels={"teen_fertility_rate": "Births per 1,000 women aged 15-19"},
+        hover_name="state",
+        hover_data={"state_abbrev": False, "race_ethnicity": True, "teen_fertility_rate": ":.1f"},
+    )
+    fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+    fig.update_layout(
+        title=dict(text="Teen fertility rate by state and race (2017-2021)", x=0.5,
+                    font=dict(size=18, family="Arial", color="black")),
+        font=dict(family="Arial", size=13),
+        margin=dict(l=10, r=10, t=70, b=10),
+    )
+    fig.update_geos(landcolor="#d9d9d9", showland=True, lakecolor="white")
+    fig.write_image(out_path, width=1800, height=1000, scale=2)
+
+    html_path = os.path.splitext(out_path)[0] + ".html"
+    fig.write_html(html_path, include_plotlyjs="cdn")
+    return html_path
 
 
 def figure_disparity_map(gaps: pd.DataFrame, comparison: str, title: str, out_path: str):
@@ -319,6 +381,8 @@ def figure_disparity_map(gaps: pd.DataFrame, comparison: str, title: str, out_pa
         color="dropout_rate_gap_pp", scope="usa", color_continuous_scale="RdBu_r",
         color_continuous_midpoint=0,
         labels={"dropout_rate_gap_pp": "Gap (pp)"},
+        hover_name="state",
+        hover_data={"state_abbrev": False, "dropout_rate_gap_pp": ":.2f"},
     )
     fig.update_layout(
         title=dict(text=title, x=0.5, font=dict(size=18, family="Arial", color="black")),
@@ -327,6 +391,10 @@ def figure_disparity_map(gaps: pd.DataFrame, comparison: str, title: str, out_pa
         geo=dict(landcolor="#d9d9d9", showland=True, lakecolor="white"),
     )
     fig.write_image(out_path, width=1000, height=650, scale=2)
+
+    html_path = os.path.splitext(out_path)[0] + ".html"
+    fig.write_html(html_path, include_plotlyjs="cdn")
+    return html_path
 
 
 def _format_regression_summary(results: dict) -> str:
@@ -365,6 +433,13 @@ if __name__ == "__main__":
     figure_state_map(df, "dropout_rate", "Total",
                       "High-school status dropout rate by state (2017-2021)",
                       "Dropout rate (%)", "figures/phase2_map_dropout_rate.png")
+    # No "Total" fertility value exists -- CDC WONDER reports single-race
+    # breakdowns only, never an all-race combined rate (unlike NCES dropout
+    # data, which does have a Total row). Small multiples across White and
+    # Black on a shared color scale, rather than a single race's map,
+    # so the figure speaks to disparity (matching phase2_map_black_white_gap)
+    # instead of standing in for an all-race rate that doesn't exist.
+    figure_fertility_map_small_multiples(df)
     figure_disparity_map(gaps, "Hispanic vs White",
                          "Hispanic-White dropout-rate gap by state",
                          "figures/phase2_map_hispanic_white_gap.png")
@@ -396,4 +471,5 @@ if __name__ == "__main__":
           f"{regressions['primary']['n_high_leverage_excluded']}")
     print("Figures -> figures/phase2_disparity_gaps.png, figures/phase2_map_dropout_rate.png,")
     print("           figures/phase2_map_hispanic_white_gap.png, figures/phase2_map_black_white_gap.png,")
+    print("           figures/phase2_map_fertility_rate_by_race.png,")
     print("           figures/phase3_fertility_dropout_scatter.png")
