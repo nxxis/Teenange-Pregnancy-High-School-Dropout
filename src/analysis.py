@@ -26,9 +26,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.express as px
+from patsy import dmatrix
 from scipy import stats
 import statsmodels.formula.api as smf
-from statsmodels.stats.outliers_influence import OLSInfluence
+from statsmodels.nonparametric.smoothers_lowess import lowess
+from statsmodels.stats.diagnostic import het_breuschpagan
+from statsmodels.stats.outliers_influence import OLSInfluence, variance_inflation_factor
 
 from harmonization import add_state_abbrev
 from plotting import RACE_PALETTE, set_style
@@ -223,7 +226,192 @@ def phase3_regressions(df: pd.DataFrame) -> dict[str, object]:
     return results
 
 
+def phase3_vif(df: pd.DataFrame) -> pd.DataFrame:
+    """Multicollinearity check for the multivariable regression's predictors
+    (design doc sec. 7.3/11: "avoid adding many correlated socioeconomic
+    variables" / "may be highly correlated with one another"). Computed on
+    the same primary regression sample as phase3_regressions (Pacific
+    Islander excluded). A VIF above 5 flags a predictor whose standard
+    error is inflated by collinearity with the others in the model --
+    above 10 is a stronger warning; below that, the multivariable
+    regression's coefficients can be interpreted without a collinearity
+    caveat."""
+    sub = _regression_sample(df, include_sparse=False)
+    design = dmatrix(
+        "teen_fertility_rate + poverty_rate + insurance_rate + C(census_region)",
+        data=sub, return_type="dataframe",
+    )
+    vifs = pd.DataFrame({
+        "variable": design.columns,
+        "vif": [variance_inflation_factor(design.values, i) for i in range(design.shape[1])],
+    })
+    return vifs[vifs["variable"] != "Intercept"].reset_index(drop=True)
+
+
+def _fit_primary_wls(df: pd.DataFrame):
+    """Refits the same primary multivariable WLS model used in
+    phase3_regressions (Pacific Islander excluded, weighted by
+    1/dropout_se^2) -- shared by the diagnostic tests and diagnostic plots
+    below so both look at exactly the model reported in Findings."""
+    sub = _regression_sample(df, include_sparse=False)
+    sub["weight"] = 1.0 / (sub["dropout_se"] ** 2)
+    model = smf.wls(MULTIVARIABLE_FORMULA, data=sub, weights=sub["weight"]).fit()
+    return model, sub
+
+
+def phase3_diagnostic_tests(df: pd.DataFrame) -> pd.DataFrame:
+    """Formal tests backing up the residual diagnostic plots (design doc
+    sec. 10.3: regression diagnostics) -- a plot alone doesn't say whether a
+    pattern is significant or just noise at this sample size.
+
+    Shapiro-Wilk tests whether the studentized residuals are consistent
+    with a normal distribution (needed for the regression's p-values/CIs
+    to be trustworthy at this n). Breusch-Pagan tests for heteroscedasticity
+    remaining in the *response* residuals even after the model has already
+    been weighted by 1/dropout_se^2 -- i.e. whether the inverse-variance
+    weighting fully accounts for the unequal reliability across state-race
+    cells, or whether some residual heteroscedasticity is left over."""
+    model, _ = _fit_primary_wls(df)
+    resid_std = OLSInfluence(model).resid_studentized_internal
+
+    shapiro_stat, shapiro_p = stats.shapiro(resid_std)
+    bp_stat, bp_p, _, _ = het_breuschpagan(model.resid, model.model.exog)
+
+    return pd.DataFrame([
+        {"test": "Shapiro-Wilk (normality of residuals)", "statistic": shapiro_stat, "p_value": shapiro_p},
+        {"test": "Breusch-Pagan (homoscedasticity)", "statistic": bp_stat, "p_value": bp_p},
+    ])
+
+
 # --- Figures ---------------------------------------------------------------
+
+def figure_distributions_by_race(
+    df: pd.DataFrame,
+    out_path: str = "figures/phase1_distributions_by_race.png",
+):
+    """Distributions of the four core analytical variables (design doc sec.
+    10.1: distributions, extreme values) -- phase1_summary_stats already
+    reports these as numbers; this is the same information as a picture,
+    which is what actually shows skew, spread, and outliers at a glance.
+
+    dropout_rate and teen_fertility_rate are genuinely race-specific, so
+    they're shown as one box per race. poverty_rate and insurance_rate are
+    NOT race-specific: they're state-level ACS estimates, merged onto every
+    race row within a state (verified -- e.g. every California row has the
+    identical poverty_rate regardless of race_ethnicity). Faceting those by
+    race would draw 7 visually distinct boxes that are mathematically
+    identical by construction, which reads as a (false) finding of no
+    racial gap in poverty. They're plotted once instead, over the 51
+    state-level values.
+
+    Total is excluded from the by-race panels -- it's the all-races
+    aggregate row (used standalone for the dropout-rate map), not a
+    comparison group. A race with zero non-null values for a given
+    variable (e.g. Hispanic and teen_fertility_rate -- CDC WONDER has no
+    Hispanic fertility rate at all) is simply omitted from that panel
+    rather than plotted as an empty box."""
+    set_style()
+    race_order = [
+        "White", "Black", "Hispanic", "American Indian/Alaska Native",
+        "Asian", "Two or more races", "Pacific Islander",
+    ]
+    by_race_vars = [
+        ("dropout_rate", "Dropout rate (%)"),
+        ("teen_fertility_rate", "Teen fertility rate (per 1,000)"),
+    ]
+    state_level_vars = [
+        ("poverty_rate", "Child poverty rate (%)"),
+        ("insurance_rate", "Child health-insurance rate (%)"),
+    ]
+
+    fig, axes = plt.subplots(2, 2, figsize=(11, 8.5))
+
+    for ax, (col, label) in zip(axes[0], by_race_vars):
+        present = [r for r in race_order if df.loc[df["race_ethnicity"] == r, col].notna().any()]
+        data = [df.loc[df["race_ethnicity"] == r, col].dropna().values for r in present]
+        colors = [RACE_PALETTE.get(r, "#333333") for r in present]
+
+        bp = ax.boxplot(
+            data, patch_artist=True, widths=0.6, showfliers=True,
+            medianprops=dict(color="black", linewidth=1.5),
+            flierprops=dict(marker="o", markersize=3, alpha=0.5, markeredgewidth=0),
+        )
+        for patch, color in zip(bp["boxes"], colors):
+            patch.set_facecolor(color)
+            patch.set_alpha(0.75)
+        ax.set_xticks(range(1, len(present) + 1))
+        ax.set_xticklabels(present, rotation=35, ha="right")
+        ax.set_ylabel(label)
+        ax.set_title(f"{label}, by race/ethnicity")
+
+    for ax, (col, label) in zip(axes[1], state_level_vars):
+        values = df.drop_duplicates("state")[col].dropna().values
+        bp = ax.boxplot(
+            [values], patch_artist=True, widths=0.4, vert=False, showfliers=True,
+            medianprops=dict(color="black", linewidth=1.5),
+            flierprops=dict(marker="o", markersize=3, alpha=0.5, markeredgewidth=0),
+        )
+        bp["boxes"][0].set_facecolor("#999999")
+        bp["boxes"][0].set_alpha(0.75)
+        ax.set_yticks([])
+        ax.set_xlabel(label)
+        ax.set_title(f"{label}, across states (n={len(values)})\n"
+                     "same value for every race within a state -- not race-specific",
+                     fontsize=10)
+
+    fig.suptitle("Distribution of core variables (Total excluded from by-race panels)",
+                 fontsize=13, fontweight="bold", y=1.0)
+    fig.tight_layout()
+    fig.savefig(out_path)
+    plt.close(fig)
+
+
+def figure_regression_diagnostics(df: pd.DataFrame, out_path: str = "figures/phase3_regression_diagnostics.png"):
+    """Residual diagnostics for the primary multivariable WLS model (design
+    doc sec. 10.3: regression diagnostics) -- checks the assumptions the
+    Findings section's regression results depend on, rather than just
+    reporting p-values and trusting them. Studentized residuals throughout,
+    since the model itself is weighted (1/dropout_se^2).
+
+    Left panel (residuals vs. fitted): checks linearity and
+    homoscedasticity -- a random scatter around zero with no funnel shape
+    or curve is what "the model's assumptions are reasonable" looks like.
+    Right panel (Normal Q-Q): checks whether residuals are approximately
+    normal -- points following the diagonal support the CIs/p-values
+    reported for this model; systematic curvature would not.
+
+    See phase3_diagnostic_tests for the formal Shapiro-Wilk and
+    Breusch-Pagan tests backing up what these plots show visually."""
+    set_style()
+    model, _ = _fit_primary_wls(df)
+    influence = OLSInfluence(model)
+    fitted = model.fittedvalues
+    resid_std = influence.resid_studentized_internal
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+
+    ax = axes[0]
+    ax.scatter(fitted, resid_std, alpha=0.65, s=35, color="#4C72B0",
+               edgecolor="white", linewidth=0.4)
+    ax.axhline(0, color="#999999", linewidth=0.9, linestyle=":")
+    smoothed = lowess(resid_std, fitted, frac=0.6)
+    ax.plot(smoothed[:, 0], smoothed[:, 1], color="black", linewidth=1.5)
+    ax.set_xlabel("Fitted values (predicted dropout rate, %)")
+    ax.set_ylabel("Studentized residuals")
+    ax.set_title("Residuals vs. fitted")
+
+    ax = axes[1]
+    stats.probplot(resid_std, dist="norm", plot=ax)
+    ax.get_lines()[0].set(markerfacecolor="#4C72B0", markeredgecolor="white",
+                            markersize=5.5, alpha=0.85)
+    ax.get_lines()[1].set_color("black")
+    ax.set_title("Normal Q-Q")
+
+    fig.suptitle("Regression diagnostics: primary multivariable WLS model",
+                 fontsize=13, fontweight="bold", y=1.02)
+    fig.savefig(out_path)
+    plt.close(fig)
+
 
 def figure_correlation_scatter(df: pd.DataFrame, out_path: str = "figures/phase3_fertility_dropout_scatter.png"):
     """The paper's likely Figure 1: the core RQ3 relationship. One point per
@@ -425,6 +613,7 @@ if __name__ == "__main__":
 
     summary_stats = phase1_summary_stats(df)
     summary_stats.to_csv("tables/phase1_summary_statistics.csv", index=False)
+    figure_distributions_by_race(df)
 
     gaps = phase2_disparity_gaps(df)
     gaps.to_csv("tables/phase2_racial_disparity_gaps.csv", index=False)
@@ -435,10 +624,10 @@ if __name__ == "__main__":
                       "Dropout rate (%)", "figures/phase2_map_dropout_rate.png")
     # No "Total" fertility value exists -- CDC WONDER reports single-race
     # breakdowns only, never an all-race combined rate (unlike NCES dropout
-    # data, which does have a Total row). Small multiples across White and
-    # Black on a shared color scale, rather than a single race's map,
-    # so the figure speaks to disparity (matching phase2_map_black_white_gap)
-    # instead of standing in for an all-race rate that doesn't exist.
+    # data, which does have a Total row). Small multiples across every
+    # FERTILITY_ELIGIBLE_RACES group on a shared color scale, rather than a
+    # single race's map, so the figure speaks to disparity across all
+    # comparison groups instead of standing in for a rate that doesn't exist.
     figure_fertility_map_small_multiples(df)
     figure_disparity_map(gaps, "Hispanic vs White",
                          "Hispanic-White dropout-rate gap by state",
@@ -465,11 +654,28 @@ if __name__ == "__main__":
     print(f"\nRegression n (primary, Pacific Islander excluded): {regressions['primary']['n']}")
     print(f"Regression n (with sparse race included): {regressions['with_sparse_race']['n']}")
     print("\nFull output -> results/phase3_regression_summary.txt")
-    print("Tables -> tables/phase1_summary_statistics.csv, tables/phase2_racial_disparity_gaps.csv,")
-    print("          tables/phase2_state_rankings.csv, tables/phase3_correlation.csv")
+
+    vif = phase3_vif(df)
+    vif.to_csv("tables/phase3_vif.csv", index=False)
+    print("\nMulticollinearity check (VIF, primary sample):")
+    print(vif.to_string(index=False))
+    if (vif["vif"] > 5).any():
+        print("WARNING: at least one predictor has VIF > 5 -- multivariable "
+              "regression coefficients may be affected by collinearity.")
+
+    diagnostic_tests = phase3_diagnostic_tests(df)
+    diagnostic_tests.to_csv("tables/phase3_diagnostic_tests.csv", index=False)
+    print("\nRegression diagnostic tests (primary WLS model):")
+    print(diagnostic_tests.to_string(index=False))
+    figure_regression_diagnostics(df)
+
+    print("\nTables -> tables/phase1_summary_statistics.csv, tables/phase2_racial_disparity_gaps.csv,")
+    print("          tables/phase2_state_rankings.csv, tables/phase3_correlation.csv, tables/phase3_vif.csv,")
+    print("          tables/phase3_diagnostic_tests.csv")
     print(f"n high-leverage points excluded in sensitivity check (primary): "
           f"{regressions['primary']['n_high_leverage_excluded']}")
-    print("Figures -> figures/phase2_disparity_gaps.png, figures/phase2_map_dropout_rate.png,")
-    print("           figures/phase2_map_hispanic_white_gap.png, figures/phase2_map_black_white_gap.png,")
-    print("           figures/phase2_map_fertility_rate_by_race.png,")
-    print("           figures/phase3_fertility_dropout_scatter.png")
+    print("Figures -> figures/phase1_distributions_by_race.png, figures/phase2_disparity_gaps.png,")
+    print("           figures/phase2_map_dropout_rate.png, figures/phase2_map_hispanic_white_gap.png,")
+    print("           figures/phase2_map_black_white_gap.png, figures/phase2_map_fertility_rate_by_race.png,")
+    print("           figures/phase3_fertility_dropout_scatter.png,")
+    print("           figures/phase3_regression_diagnostics.png")

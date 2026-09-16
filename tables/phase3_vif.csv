@@ -1,0 +1,7 @@
+variable,vif
+C(census_region)[T.Northeast],1.489407128251537
+C(census_region)[T.South],2.2105677283270455
+C(census_region)[T.West],1.5617086071882895
+teen_fertility_rate,1.1554563703231506
+poverty_rate,1.6835616327821652
+insurance_rate,1.240773277430334
