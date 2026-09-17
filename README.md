@@ -60,6 +60,13 @@ and cannot answer:
   as other groups. Separately, Pacific Islander is reported descriptively
   only (usable data in just 4 of 51 states) and excluded from regression
   and modeling.
+- **`poverty_rate` and `insurance_rate` are state-level, not
+  race-specific.** The ACS source tables (S1701, S2701) provide one
+  child-poverty and one child-insurance value per state; the same value is
+  merged onto every race/ethnicity row within that state. This is why they
+  enter the regression as state-level context controls (RQ5) rather than
+  as a per-race comparison, and why `figures/phase1_distributions_by_race.png`
+  plots them once across states instead of faceting by race.
 
 ## Repository structure
 
@@ -96,10 +103,14 @@ python3 src/analysis.py
 # -> results/phase1_data_quality_report.csv
 # -> results/phase3_regression_summary.txt
 # -> tables/phase1_summary_statistics.csv, phase2_racial_disparity_gaps.csv,
-#    phase2_state_rankings.csv, phase3_correlation.csv
-# -> figures/phase2_disparity_gaps.png, phase2_map_dropout_rate.png,
+#    phase2_state_rankings.csv, phase3_correlation.csv, phase3_vif.csv,
+#    phase3_diagnostic_tests.csv
+# -> figures/phase1_distributions_by_race.png,
+#    phase2_disparity_gaps.png, phase2_map_dropout_rate.png,
 #    phase2_map_hispanic_white_gap.png, phase2_map_black_white_gap.png,
-#    phase3_fertility_dropout_scatter.png
+#    phase2_map_fertility_rate_by_race.png, phase3_fertility_dropout_scatter.png,
+#    phase3_regression_diagnostics.png
+#    (each phase2_map_*.png has a companion .html with hover tooltips)
 
 # 3. Machine learning + fairness/explainability
 python3 src/modeling.py
@@ -126,7 +137,23 @@ The fertility effect holds under standard errors clustered by state
 (accounting for the fact that each state contributes multiple
 non-independent race-group rows) and is not driven by a handful of
 extreme observations — a Cook's-distance sensitivity check flags zero
-high-leverage points in the primary sample.
+high-leverage points in the primary sample. Multicollinearity is not a
+concern: variance inflation factors for all predictors (fertility rate,
+poverty, insurance, Census region) are below 2.3, well under the
+conventional threshold of 5 (see `tables/phase3_vif.csv`), so these
+coefficients can be interpreted without a collinearity caveat.
+
+**Regression diagnostics** (see `figures/phase3_regression_diagnostics.png`,
+`tables/phase3_diagnostic_tests.csv`) surface one real limitation: model
+residuals are right-skewed rather than normal (Shapiro-Wilk p < 10⁻¹⁴), and
+Breusch-Pagan detects mild residual heteroscedasticity remaining even after
+inverse-variance weighting (p = 0.041). This means a handful of state-race
+cells have actual dropout rates well above what the model predicts. At
+n = 197 the coefficient estimates themselves are not seriously threatened by
+this (the same fertility effect holds under clustered SEs and excluding
+high-leverage points, above), but the exact p-values and confidence
+intervals for the primary WLS model should be read as approximate rather
+than precise.
 
 **Disparities.** Racial dropout gaps are substantial: the median
 Black-White gap is +2.1 percentage points (a 1.55x ratio); the median

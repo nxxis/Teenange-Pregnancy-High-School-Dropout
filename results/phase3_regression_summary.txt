@@ -9,8 +9,8 @@ Sample: primary  (n=197)
 Dep. Variable:           dropout_rate   R-squared:                       0.477
 Model:                            OLS   Adj. R-squared:                  0.474
 Method:                 Least Squares   F-statistic:                     177.8
-Date:                Thu, 03 Sep 2026   Prob (F-statistic):           2.99e-29
-Time:                        19:44:49   Log-Likelihood:                -438.64
+Date:                Wed, 16 Sep 2026   Prob (F-statistic):           2.99e-29
+Time:                        12:59:31   Log-Likelihood:                -438.64
 No. Observations:                 197   AIC:                             881.3
 Df Residuals:                     195   BIC:                             887.8
 Df Model:                           1                                         
@@ -36,8 +36,8 @@ Notes:
 Dep. Variable:           dropout_rate   R-squared:                       0.505
 Model:                            OLS   Adj. R-squared:                  0.489
 Method:                 Least Squares   F-statistic:                     32.29
-Date:                Thu, 03 Sep 2026   Prob (F-statistic):           1.20e-26
-Time:                        19:44:49   Log-Likelihood:                -433.22
+Date:                Wed, 16 Sep 2026   Prob (F-statistic):           1.20e-26
+Time:                        12:59:31   Log-Likelihood:                -433.22
 No. Observations:                 197   AIC:                             880.4
 Df Residuals:                     190   BIC:                             903.4
 Df Model:                           6                                         
@@ -68,8 +68,8 @@ Notes:
 Dep. Variable:           dropout_rate   R-squared:                       0.612
 Model:                            WLS   Adj. R-squared:                  0.600
 Method:                 Least Squares   F-statistic:                     49.95
-Date:                Thu, 03 Sep 2026   Prob (F-statistic):           1.54e-36
-Time:                        19:44:49   Log-Likelihood:                -413.97
+Date:                Wed, 16 Sep 2026   Prob (F-statistic):           1.54e-36
+Time:                        12:59:31   Log-Likelihood:                -413.97
 No. Observations:                 197   AIC:                             841.9
 Df Residuals:                     190   BIC:                             864.9
 Df Model:                           6                                         
@@ -101,8 +101,8 @@ Notes:
 Dep. Variable:           dropout_rate   R-squared:                       0.612
 Model:                            WLS   Adj. R-squared:                  0.600
 Method:                 Least Squares   F-statistic:                     47.43
-Date:                Thu, 03 Sep 2026   Prob (F-statistic):           5.93e-19
-Time:                        19:44:49   Log-Likelihood:                -413.97
+Date:                Wed, 16 Sep 2026   Prob (F-statistic):           5.93e-19
+Time:                        12:59:31   Log-Likelihood:                -413.97
 No. Observations:                 197   AIC:                             841.9
 Df Residuals:                     190   BIC:                             864.9
 Df Model:                           6                                         
@@ -133,8 +133,8 @@ Notes:
 Dep. Variable:           dropout_rate   R-squared:                       0.612
 Model:                            WLS   Adj. R-squared:                  0.600
 Method:                 Least Squares   F-statistic:                     49.95
-Date:                Thu, 03 Sep 2026   Prob (F-statistic):           1.54e-36
-Time:                        19:44:49   Log-Likelihood:                -413.97
+Date:                Wed, 16 Sep 2026   Prob (F-statistic):           1.54e-36
+Time:                        12:59:31   Log-Likelihood:                -413.97
 No. Observations:                 197   AIC:                             841.9
 Df Residuals:                     190   BIC:                             864.9
 Df Model:                           6                                         
@@ -169,8 +169,8 @@ Sample: with_sparse_race  (n=204)
 Dep. Variable:           dropout_rate   R-squared:                       0.534
 Model:                            OLS   Adj. R-squared:                  0.532
 Method:                 Least Squares   F-statistic:                     231.8
-Date:                Thu, 03 Sep 2026   Prob (F-statistic):           2.28e-35
-Time:                        19:44:49   Log-Likelihood:                -452.36
+Date:                Wed, 16 Sep 2026   Prob (F-statistic):           2.28e-35
+Time:                        12:59:31   Log-Likelihood:                -452.36
 No. Observations:                 204   AIC:                             908.7
 Df Residuals:                     202   BIC:                             915.4
 Df Model:                           1                                         
@@ -196,8 +196,8 @@ Notes:
 Dep. Variable:           dropout_rate   R-squared:                       0.557
 Model:                            OLS   Adj. R-squared:                  0.544
 Method:                 Least Squares   F-statistic:                     41.31
-Date:                Thu, 03 Sep 2026   Prob (F-statistic):           2.25e-32
-Time:                        19:44:49   Log-Likelihood:                -447.23
+Date:                Wed, 16 Sep 2026   Prob (F-statistic):           2.25e-32
+Time:                        12:59:31   Log-Likelihood:                -447.23
 No. Observations:                 204   AIC:                             908.5
 Df Residuals:                     197   BIC:                             931.7
 Df Model:                           6                                         
@@ -228,8 +228,8 @@ Notes:
 Dep. Variable:           dropout_rate   R-squared:                       0.612
 Model:                            WLS   Adj. R-squared:                  0.600
 Method:                 Least Squares   F-statistic:                     51.70
-Date:                Thu, 03 Sep 2026   Prob (F-statistic):           6.66e-38
-Time:                        19:44:49   Log-Likelihood:                -433.99
+Date:                Wed, 16 Sep 2026   Prob (F-statistic):           6.66e-38
+Time:                        12:59:31   Log-Likelihood:                -433.99
 No. Observations:                 204   AIC:                             882.0
 Df Residuals:                     197   BIC:                             905.2
 Df Model:                           6                                         
@@ -261,8 +261,8 @@ Notes:
 Dep. Variable:           dropout_rate   R-squared:                       0.612
 Model:                            WLS   Adj. R-squared:                  0.600
 Method:                 Least Squares   F-statistic:                     49.06
-Date:                Thu, 03 Sep 2026   Prob (F-statistic):           2.91e-19
-Time:                        19:44:49   Log-Likelihood:                -433.99
+Date:                Wed, 16 Sep 2026   Prob (F-statistic):           2.91e-19
+Time:                        12:59:31   Log-Likelihood:                -433.99
 No. Observations:                 204   AIC:                             882.0
 Df Residuals:                     197   BIC:                             905.2
 Df Model:                           6                                         
@@ -293,8 +293,8 @@ Notes:
 Dep. Variable:           dropout_rate   R-squared:                       0.612
 Model:                            WLS   Adj. R-squared:                  0.600
 Method:                 Least Squares   F-statistic:                     51.70
-Date:                Thu, 03 Sep 2026   Prob (F-statistic):           6.66e-38
-Time:                        19:44:49   Log-Likelihood:                -433.99
+Date:                Wed, 16 Sep 2026   Prob (F-statistic):           6.66e-38
+Time:                        12:59:31   Log-Likelihood:                -433.99
 No. Observations:                 204   AIC:                             882.0
 Df Residuals:                     197   BIC:                             905.2
 Df Model:                           6                                         
