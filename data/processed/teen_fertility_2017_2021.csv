@@ -1,4 +1,4 @@
-state,race_ethnicity,births_teen,female_population_15_44,teen_fertility_rate,natality_quality_flag,original_category,race_definition,natality_race_comparable_to_nces,fips,natality_data_source,natality_source_period
+state,race_ethnicity,births_teen,female_population_15_19,teen_fertility_rate,natality_quality_flag,original_category,race_definition,natality_race_comparable_to_nces,fips,natality_data_source,natality_source_period
 Alabama,American Indian/Alaska Native,,,,suppressed_or_incomplete_5yr_window,American Indian or Alaska Native,"AI/AN, any ethnicity (Hispanic origin not separated)",False,01,CDC WONDER Natality 2016-2024 Expanded (age 15-19),2017-2021
 Alabama,Asian,,,,suppressed_or_incomplete_5yr_window,Asian,"Asian, any ethnicity (Hispanic origin not separated)",False,01,CDC WONDER Natality 2016-2024 Expanded (age 15-19),2017-2021
 Alabama,Black,7530.0,238249.0,31.605589110552405,reliable,Black or African American,"Black, any ethnicity (Hispanic origin not separated)",False,01,CDC WONDER Natality 2016-2024 Expanded (age 15-19),2017-2021

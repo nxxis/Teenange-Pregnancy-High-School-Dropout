@@ -1,4 +1,4 @@
-state,poverty_rate,poverty_rate_moe,insurance_rate,insurance_rate_moe,fips,acs_data_source,acs_source_period
+state,poverty_rate,poverty_rate_moe,uninsured_rate,uninsured_rate_moe,fips,acs_data_source,acs_source_period
 Alabama,22.3,0.6,3.4,0.2,01,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
 Alaska,13.1,0.8,8.8,0.6,02,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021
 Arizona,18.8,0.5,8.7,0.3,04,ACS 5-year 2017-2021 (S1701 age band: under 18; S2701 age band: under 19),2017-2021

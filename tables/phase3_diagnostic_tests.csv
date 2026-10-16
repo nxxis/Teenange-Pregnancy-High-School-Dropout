@@ -1,3 +1,3 @@
 test,statistic,p_value
-Shapiro-Wilk (normality of residuals),0.8105686137725935,9.886572180129706e-15
-Breusch-Pagan (homoscedasticity),13.131068895437412,0.04100114080154346
+Shapiro-Wilk (normality of weighted studentized residuals),0.8515373763860956,6.617955175146814e-13
+Breusch-Pagan (homoscedasticity of weighted residuals),4.715635900875003,0.5807672340803969

@@ -1,0 +1,3 @@
+group_variable,test,statistic,df_num,df_denom,p_value
+race_ethnicity,"equal fertility slopes (Wald F, clustered)",2.7032750702780683,4,50.0,0.040769632044106476
+census_region,"equal fertility slopes (Wald F, clustered)",1.2038526039278736,3,50.0,0.3179889580987875
