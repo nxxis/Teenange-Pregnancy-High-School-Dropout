@@ -1,0 +1,5 @@
+weighting,learner,comparison,mean_RMSE_reduction,sd_RMSE_reduction,share_repeats_A_better,mean_R2_gain
+inverse_variance,linear,A_no_race vs fertility_only,-0.0772417321705661,0.04054788405754572,0.05,-0.04059680812270639
+inverse_variance,random_forest,A_no_race vs fertility_only,0.13631277518673274,0.04141513486722402,1.0,0.07062964784043782
+unweighted,linear,A_no_race vs fertility_only,-0.03727049102871112,0.027120549954610336,0.1,-0.017828548934347467
+unweighted,random_forest,A_no_race vs fertility_only,0.13882020576764798,0.03833479683442164,1.0,0.0705659104110046

@@ -139,7 +139,7 @@ def load_natality() -> pd.DataFrame:
             "state": state,
             "race_ethnicity": race,
             "births_teen": births_sum,
-            "female_population_15_44": pop_sum,
+            "female_population_15_19": pop_sum,
             "teen_fertility_rate": rate,
             "natality_quality_flag": flag,
         })
@@ -183,10 +183,11 @@ def load_acs() -> pd.DataFrame:
     )
     insurance = _load_acs_json(
         ACS_INSURANCE_JSON, "S2701_C05_011E", "S2701_C05_011M",
-        "insurance_rate", "insurance_rate_moe",
+        "uninsured_rate", "uninsured_rate_moe",
     )
-    # `insurance_rate` here is the UNINSURED percent (design doc names the
-    # field generically; direction is documented in the data dictionary).
+    # Named `uninsured_rate`, not the design doc's generic `insurance_rate`:
+    # S2701_C05_011E is the UNINSURED percent, and a generic name invited
+    # reading it backwards in tables and figures.
 
     merged = poverty.merge(insurance, on="state", how="inner")
     merged = add_fips(merged)
@@ -206,7 +207,7 @@ def build_master_dataset() -> pd.DataFrame:
 
     master = dropout.merge(
         natality[[
-            "fips", "race_ethnicity", "births_teen", "female_population_15_44",
+            "fips", "race_ethnicity", "births_teen", "female_population_15_19",
             "teen_fertility_rate", "natality_quality_flag",
             "natality_race_comparable_to_nces",
             "natality_data_source", "natality_source_period",
@@ -217,7 +218,7 @@ def build_master_dataset() -> pd.DataFrame:
     master = master.merge(
         acs[[
             "fips", "poverty_rate", "poverty_rate_moe",
-            "insurance_rate", "insurance_rate_moe",
+            "uninsured_rate", "uninsured_rate_moe",
             "acs_data_source", "acs_source_period",
         ]],
         on="fips", how="left",
@@ -247,16 +248,16 @@ def generate_data_dictionary(master: pd.DataFrame, out_path: str = "docs/data_di
         "dropout_data_source": "Source table for dropout_rate",
         "dropout_source_period": "Period the dropout figures cover",
         "births_teen": "Sum of births to mothers aged 15-19, 2017-2021, CDC WONDER. NaN if any year in the window was suppressed or missing for this state/race.",
-        "female_population_15_44": "Sum of the CDC fertility-rate denominator population, 2017-2021.",
-        "teen_fertility_rate": "births_teen / female_population_15_44 x 1,000, computed from the 5-year sums (not an average of annual rates).",
+        "female_population_15_19": "Sum of the CDC fertility-rate denominator, 2017-2021. WONDER subsets the 15-44 denominator by the same mother's-age filter as the numerator (query caveat 4), so with Age of Mother = 15-19 this is females aged 15-19 (e.g. Alabama White 2019 = 99,059), not 15-44.",
+        "teen_fertility_rate": "births_teen / female_population_15_19 x 1,000 = births per 1,000 females aged 15-19 (age-specific rate), computed from the 5-year sums (not an average of annual rates).",
         "natality_quality_flag": "reliable / suppressed_or_incomplete_5yr_window (any of the 5 years suppressed or missing -> whole aggregate is NaN, not partially summed)",
         "natality_data_source": "Source query for teen_fertility_rate",
         "natality_source_period": "Period the natality figures cover",
         "poverty_rate": "ACS S1701_C03_002E: percent of population under 18 years below poverty level, 2017-2021 5-yr estimate. State-level only (not by race).",
         "poverty_rate_moe": "ACS margin of error for poverty_rate (90% confidence level, per ACS convention)",
-        "insurance_rate": "ACS S2701_C05_011E: percent UNINSURED, under 19 years, 2017-2021 5-yr estimate (note: this is the uninsured rate, not the insured rate). State-level only (not by race).",
-        "insurance_rate_moe": "ACS margin of error for insurance_rate",
-        "acs_data_source": "Source tables for poverty_rate/insurance_rate, including the age-band mismatch between S1701 (under 18) and S2701 (under 19)",
+        "uninsured_rate": "ACS S2701_C05_011E: percent UNINSURED, under 19 years, 2017-2021 5-yr estimate (note: this is the uninsured rate, not the insured rate). State-level only (not by race).",
+        "uninsured_rate_moe": "ACS margin of error for uninsured_rate",
+        "acs_data_source": "Source tables for poverty_rate/uninsured_rate, including the age-band mismatch between S1701 (under 18) and S2701 (under 19)",
         "acs_source_period": "Period the ACS figures cover",
         "year_period": "Study period for this entire dataset: 2017-2021",
         "census_region": "Standard Census 4-region grouping (Northeast/Midwest/South/West), used in place of state fixed effects for the geographic comparison.",

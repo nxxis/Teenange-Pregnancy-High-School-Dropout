@@ -1,6 +1,9 @@
 """
 Phase 1-3 analysis (design_document.pdf section 10.1-10.3):
 
+  - One analytic sample (association_sample) feeds every Phase 3 table,
+    figure, and the Phase 4-5 models; variants are labeled sensitivity checks.
+
   - RQ2 (dropout trends/disparities by race) includes Hispanic -- NCES
     Table 219.85b reports a Hispanic dropout rate.
   - RQ3 onward (association with teen_fertility_rate) EXCLUDES Hispanic
@@ -8,14 +11,16 @@ Phase 1-3 analysis (design_document.pdf section 10.1-10.3):
   - Pacific Islander is reported descriptively only (4 of 51 states have
     usable fertility+dropout data for this group) -- excluded from the
     primary regression sample, included in a labeled sensitivity check.
-  - No state fixed effects (infeasible at this N) -- census_region used
-    instead for the geographic comparison (RQ4).
+  - census_region carries the geographic comparison (RQ4). State fixed
+    effects can't sit alongside the state-level covariates (collinear), but
+    are used in one ladder model (M5) to estimate the association within
+    states, across race groups -- see decisions_log.md #11.
   - The dataset is a single 2017-2021 cross-section, not a repeated-period
     panel -- there is no year-over-year trend to plot. This is a real
     scope limitation, stated here rather than glossed over.
-  - Multivariable regression is run both unweighted (OLS) and weighted by
-    inverse-variance (1/dropout_se^2) -- the weighted version is the one
-    that should be trusted for interpretation.
+  - Regressions are WLS weighted by 1/dropout_se^2 with state-clustered
+    SEs; unweighted OLS and random-effects meta-regression weights are
+    reported as robustness checks.
 """
 
 import os
@@ -27,7 +32,8 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 from patsy import dmatrix
-from scipy import stats
+from scipy import optimize, stats
+import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.nonparametric.smoothers_lowess import lowess
 from statsmodels.stats.diagnostic import het_breuschpagan
@@ -77,7 +83,12 @@ def phase1_data_quality(df: pd.DataFrame) -> pd.DataFrame:
         & (df["natality_quality_flag"] == "reliable")
     ).sum()
     rows.append(("n_rows_both_dropout_and_fertility_reliable", both_reliable,
-                 f"{both_reliable/len(df):.1%} of all rows -- the real usable N for RQ3"))
+                 f"{both_reliable/len(df):.1%} of all rows (all races, incl. Pacific Islander)"))
+    primary = association_sample(df)
+    rows.append(("n_primary_association_sample", len(primary),
+                 f"{primary['fips'].nunique()} states; races {', '.join(PRIMARY_RACES)}; "
+                 f"{(primary['dropout_quality_flag'] != 'reliable').sum()} unreliable-but-retained "
+                 "dropout cells (down-weighted) -- the N for every RQ3+ analysis"))
 
     # Unit sanity check (design doc sec. 10.1 pt. 4): dropout_rate is a
     # percent (roughly 0-40), teen_fertility_rate is per 1,000 (roughly
@@ -96,17 +107,30 @@ def phase1_data_quality(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def phase1_summary_stats(df: pd.DataFrame) -> pd.DataFrame:
-    numeric_cols = ["dropout_rate", "teen_fertility_rate", "poverty_rate", "insurance_rate"]
-    overall = df[numeric_cols].describe().T
-    overall["race_ethnicity"] = "ALL"
+    """Summary statistics by race/ethnicity plus an "ALL" row per variable.
+
+    The ALL rows respect each variable's unit of observation: dropout_rate
+    and teen_fertility_rate pool the race-specific rows (Total excluded, so
+    it isn't double-counted against its own components), while poverty_rate
+    and uninsured_rate are state-level and are summarized once over the 51
+    states rather than once per repeated race row."""
+    race_cols = ["dropout_rate", "teen_fertility_rate"]
+    state_cols = ["poverty_rate", "uninsured_rate"]
     by_race = (
-        df.groupby("race_ethnicity")[numeric_cols]
+        df.groupby("race_ethnicity")[race_cols + state_cols]
         .describe()
         .stack(level=0, future_stack=True)
         .rename_axis(["race_ethnicity", "variable"])
         .reset_index()
     )
-    return by_race
+    by_race = by_race[~by_race["variable"].isin(state_cols)]
+
+    non_total = df[df["race_ethnicity"] != "Total"]
+    overall_race = non_total[race_cols].describe().T
+    overall_state = df.drop_duplicates("fips")[state_cols].describe().T
+    overall = pd.concat([overall_race, overall_state]).rename_axis("variable").reset_index()
+    overall.insert(0, "race_ethnicity", "ALL")
+    return pd.concat([overall, by_race], ignore_index=True)
 
 
 # --- Phase 2: Trend and Disparity Analysis --------------------------------
@@ -146,99 +170,254 @@ def phase2_state_rankings(df: pd.DataFrame, race: str, metric: str, n: int = 5) 
 
 
 # --- Phase 3: Association Analysis ----------------------------------------
+#
+# Every Phase 3 table, figure, and the Phase 4-5 models draw on ONE analytic
+# sample, built by association_sample(): fertility-eligible races minus
+# SPARSE_RACES, any row with a non-suppressed dropout_rate (reliable or
+# unreliable -- unreliable rows are retained and down-weighted, matching
+# NCES's own guidance to report them with a caution flag) and a reliable
+# 5-year fertility aggregate. The reliable-only and with-Pacific-Islander
+# variants are run as labeled sensitivity checks, never as a silently
+# different "main" sample.
 
-def phase3_correlation(df: pd.DataFrame) -> pd.DataFrame:
-    sub = df[
-        df["race_ethnicity"].isin(FERTILITY_ELIGIBLE_RACES)
-        & (df["dropout_quality_flag"] == "reliable")
-        & (df["natality_quality_flag"] == "reliable")
-    ][["dropout_rate", "teen_fertility_rate"]].dropna()
+PRIMARY_RACES = [r for r in FERTILITY_ELIGIBLE_RACES if r not in SPARSE_RACES]
 
-    pearson_r, pearson_p = stats.pearsonr(sub["dropout_rate"], sub["teen_fertility_rate"])
-    spearman_r, spearman_p = stats.spearmanr(sub["dropout_rate"], sub["teen_fertility_rate"])
-
-    return pd.DataFrame([
-        {"method": "Pearson", "r": pearson_r, "p_value": pearson_p, "n": len(sub)},
-        {"method": "Spearman", "r": spearman_r, "p_value": spearman_p, "n": len(sub)},
-    ])
+COVARIATES = "poverty_rate + uninsured_rate"
+MULTIVARIABLE_FORMULA = f"dropout_rate ~ teen_fertility_rate + {COVARIATES} + C(census_region)"
 
 
-def _regression_sample(df: pd.DataFrame, include_sparse: bool) -> pd.DataFrame:
-    races = FERTILITY_ELIGIBLE_RACES if include_sparse else [
-        r for r in FERTILITY_ELIGIBLE_RACES if r not in SPARSE_RACES
-    ]
-    cols = ["fips", "dropout_rate", "dropout_se", "teen_fertility_rate", "poverty_rate",
-            "insurance_rate", "census_region", "race_ethnicity"]
+def association_sample(df: pd.DataFrame, include_sparse: bool = False,
+                       reliable_only: bool = False) -> pd.DataFrame:
+    races = FERTILITY_ELIGIBLE_RACES if include_sparse else PRIMARY_RACES
+    cols = ["fips", "state", "race_ethnicity", "dropout_rate", "dropout_se",
+            "dropout_quality_flag", "teen_fertility_rate", "poverty_rate",
+            "uninsured_rate", "census_region"]
     sub = df[df["race_ethnicity"].isin(races)][cols].dropna()
+    if reliable_only:
+        sub = sub[sub["dropout_quality_flag"] == "reliable"]
+    sub = sub.reset_index(drop=True)
+    sub["weight"] = 1.0 / (sub["dropout_se"] ** 2)
     return sub
 
 
-MULTIVARIABLE_FORMULA = "dropout_rate ~ teen_fertility_rate + poverty_rate + insurance_rate + C(census_region)"
+def phase3_correlation(df: pd.DataFrame) -> pd.DataFrame:
+    """Pearson + Spearman correlations (design doc sec. 10.3 pts. 1-2), on
+    the primary sample, the reliable-only sensitivity sample, and within
+    each race group separately. The within-race rows matter: a pooled
+    correlation across race groups partly reflects between-group
+    differences (e.g. AI/AN high on both measures, Asian low on both), so
+    the paper needs to show the association also holds *within* groups."""
+    rows = []
+
+    def _corr(sub, sample, group):
+        pr, pp = stats.pearsonr(sub["teen_fertility_rate"], sub["dropout_rate"])
+        sr, sp = stats.spearmanr(sub["teen_fertility_rate"], sub["dropout_rate"])
+        rows.append({"sample": sample, "group": group, "n": len(sub),
+                     "pearson_r": pr, "pearson_p": pp, "spearman_r": sr, "spearman_p": sp})
+
+    primary = association_sample(df)
+    _corr(primary, "primary", "pooled")
+    _corr(association_sample(df, reliable_only=True), "reliable_only", "pooled")
+    for race in PRIMARY_RACES:
+        _corr(primary[primary["race_ethnicity"] == race], "primary", race)
+    return pd.DataFrame(rows)
 
 
-def phase3_regressions(df: pd.DataFrame) -> dict[str, object]:
-    """Bivariate + multivariable regression, unweighted (OLS) and
-    inverse-variance weighted (WLS, weight = 1/dropout_se^2) -- weighting
-    downweights small/noisy state-race cells instead of treating a
-    CV-50% estimate as equally trustworthy as a solid one. Run both with
-    and without Pacific Islander (SPARSE_RACES) as the sensitivity check
-    design doc sec. 10.3 pt. 7 asks for.
+def _fit_wls(formula: str, sub: pd.DataFrame, weights=None):
+    """WLS with standard errors clustered by state (design doc sec. 10.3 pt.
+    6). Clustering is used for every reported model, not just one variant:
+    each state contributes up to 5 race rows sharing the same state-level
+    covariates, so row-independent SEs would overstate precision."""
+    w = sub["weight"] if weights is None else weights
+    return smf.wls(formula, data=sub, weights=w).fit(
+        cov_type="cluster", cov_kwds={"groups": sub["fips"]}
+    )
 
-    Also reports the WLS model with standard errors clustered by state
-    (design doc sec. 10.3 pt. 6): every state contributes up to 8 race-group
-    rows that share the same poverty_rate/insurance_rate/census_region
-    values, so treating all rows as independent understates uncertainty.
-    Clustering by fips corrects for that within-state non-independence.
 
-    And a Cook's-distance sensitivity check (design doc sec. 10.3 pt. 7):
-    refits the primary WLS model excluding points with unusually high
-    influence, to check the fertility coefficient isn't an artifact of a
-    handful of extreme state-race cells."""
-    results = {}
-    for label, include_sparse in [("primary", False), ("with_sparse_race", True)]:
-        sub = _regression_sample(df, include_sparse)
-        sub["weight"] = 1.0 / (sub["dropout_se"] ** 2)
+def whitened_influence(model) -> OLSInfluence:
+    """Influence statistics for a WLS fit. statsmodels' OLSInfluence applied
+    directly to a WLS result uses the raw residuals and the unweighted
+    design matrix but the *weighted* residual variance, so its Cook's
+    distances and studentized residuals are on mismatched scales (this
+    previously made every Cook's distance look tiny). Refitting the
+    equivalent OLS on the whitened data (sqrt(w)*y on sqrt(w)*X) gives the
+    correct WLS influence measures."""
+    return OLSInfluence(sm.OLS(model.model.wendog, model.model.wexog).fit())
 
-        bivariate_ols = smf.ols("dropout_rate ~ teen_fertility_rate", data=sub).fit()
-        multivariable_ols = smf.ols(MULTIVARIABLE_FORMULA, data=sub).fit()
-        multivariable_wls = smf.wls(MULTIVARIABLE_FORMULA, data=sub, weights=sub["weight"]).fit()
-        multivariable_wls_clustered = smf.wls(MULTIVARIABLE_FORMULA, data=sub, weights=sub["weight"]).fit(
-            cov_type="cluster", cov_kwds={"groups": sub["fips"]}
-        )
 
-        cooks_d = OLSInfluence(multivariable_wls).cooks_distance[0]
-        threshold = 4 / len(sub)
-        high_leverage_mask = cooks_d > threshold
-        sub_excl = sub.loc[~high_leverage_mask]
-        multivariable_wls_excl_high_leverage = smf.wls(
-            MULTIVARIABLE_FORMULA, data=sub_excl, weights=sub_excl["weight"]
-        ).fit()
+def random_effects_tau2(y: np.ndarray, X: np.ndarray, se: np.ndarray) -> float:
+    """REML estimate of the between-cell variance tau^2 in a random-effects
+    meta-regression y_i ~ N(X_i b, se_i^2 + tau^2). Each state-race dropout
+    rate is an estimate with a known sampling SE; tau^2 is the residual
+    heterogeneity the covariates don't explain. Weighting by
+    1/(se^2 + tau^2) instead of 1/se^2 stops a few very precisely measured
+    cells (large White populations) from dominating the fit."""
+    def neg_reml(log_tau2):
+        v = se ** 2 + np.exp(log_tau2)
+        w = 1.0 / v
+        xtwx = X.T @ (X * w[:, None])
+        b = np.linalg.solve(xtwx, X.T @ (w * y))
+        r = y - X @ b
+        _, logdet = np.linalg.slogdet(xtwx)
+        return 0.5 * (np.sum(np.log(v)) + logdet + np.sum(w * r ** 2))
 
-        results[label] = {
-            "n": len(sub),
-            "bivariate_ols": bivariate_ols,
-            "multivariable_ols": multivariable_ols,
-            "multivariable_wls": multivariable_wls,
-            "multivariable_wls_clustered": multivariable_wls_clustered,
-            "n_high_leverage_excluded": int(high_leverage_mask.sum()),
-            "multivariable_wls_excl_high_leverage": multivariable_wls_excl_high_leverage,
-        }
-    return results
+    res = optimize.minimize_scalar(neg_reml, bounds=(-12, 6), method="bounded")
+    return float(np.exp(res.x))
+
+
+def _coef_row(model, label: str, spec: str, term: str = "teen_fertility_rate") -> dict:
+    lo, hi = model.conf_int().loc[term]
+    return {
+        "model": label, "specification": spec, "n": int(model.nobs),
+        "fertility_coef": model.params[term], "cluster_se": model.bse[term],
+        "ci_low": lo, "ci_high": hi, "p_value": model.pvalues[term],
+        "r_squared": model.rsquared,
+    }
+
+
+def phase3_regression_ladder(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """The paper's main association table (RQ3, RQ5/H3): the fertility
+    coefficient as controls are added step by step. All WLS (1/dropout_se^2),
+    SEs clustered by state. Coefficient = percentage-point change in status
+    dropout rate per 1 additional birth per 1,000 females aged 15-19.
+
+      M1  fertility only                         (bivariate, RQ3)
+      M2  + child poverty, child uninsured rate  (RQ5 / H3: attenuation)
+      M3  + Census region                        (primary multivariable)
+      M4  + race/ethnicity fixed effects         (association net of
+                                                  race-group level differences)
+      M5  race FE + state FE                     (within-state: compares race
+                                                  groups in the SAME state, so
+                                                  every state-level confounder,
+                                                  measured or not, is absorbed;
+                                                  state-level covariates drop
+                                                  out because they're collinear
+                                                  with state FE)
+    """
+    sub = association_sample(df)
+    specs = [
+        ("M1", "fertility only", "dropout_rate ~ teen_fertility_rate"),
+        ("M2", "+ poverty, uninsured", f"dropout_rate ~ teen_fertility_rate + {COVARIATES}"),
+        ("M3", "+ census region (primary)", MULTIVARIABLE_FORMULA),
+        ("M4", "+ race/ethnicity FE", MULTIVARIABLE_FORMULA + " + C(race_ethnicity)"),
+        ("M5", "race FE + state FE (within-state)",
+         "dropout_rate ~ teen_fertility_rate + C(race_ethnicity) + C(fips)"),
+    ]
+    models, rows = {}, []
+    for label, spec, formula in specs:
+        m = _fit_wls(formula, sub)
+        models[label] = m
+        rows.append(_coef_row(m, label, spec))
+    table = pd.DataFrame(rows)
+    table["n_states"] = sub["fips"].nunique()
+    m1 = table.loc[table["model"] == "M1", "fertility_coef"].iloc[0]
+    table["pct_attenuation_vs_M1"] = 100 * (1 - table["fertility_coef"] / m1)
+    return table, models
+
+
+def phase3_robustness(df: pd.DataFrame) -> pd.DataFrame:
+    """Sensitivity of the fertility coefficient (design doc sec. 10.3 pt. 7)
+    for the primary (M3) and race-adjusted (M4) specifications."""
+    primary = association_sample(df)
+    rows = []
+    for label, formula in [("M3", MULTIVARIABLE_FORMULA),
+                           ("M4", MULTIVARIABLE_FORMULA + " + C(race_ethnicity)")]:
+        base = _fit_wls(formula, primary)
+        rows.append(_coef_row(base, label, "primary: WLS 1/se^2, clustered SE"))
+
+        ols = smf.ols(formula, data=primary).fit(cov_type="cluster", cov_kwds={"groups": primary["fips"]})
+        rows.append(_coef_row(ols, label, "unweighted OLS"))
+
+        rel = association_sample(df, reliable_only=True)
+        rows.append(_coef_row(_fit_wls(formula, rel), label, "reliable dropout estimates only"))
+
+        sparse = association_sample(df, include_sparse=True)
+        rows.append(_coef_row(_fit_wls(formula, sparse), label, "incl. Pacific Islander"))
+
+        cooks = whitened_influence(smf.wls(formula, data=primary, weights=primary["weight"]).fit()).cooks_distance[0]
+        keep = primary[cooks <= 4 / len(primary)]
+        r = _coef_row(_fit_wls(formula, keep), label,
+                      f"excl. {len(primary) - len(keep)} influential cells (Cook's D > 4/n)")
+        rows.append(r)
+
+        y = primary["dropout_rate"].values
+        X = smf.wls(formula, data=primary, weights=primary["weight"]).fit().model.exog
+        tau2 = random_effects_tau2(y, X, primary["dropout_se"].values)
+        re_w = 1.0 / (primary["dropout_se"] ** 2 + tau2)
+        rows.append(_coef_row(_fit_wls(formula, primary, weights=re_w), label,
+                              f"random-effects meta-regression weights 1/(se^2+tau^2), tau^2={tau2:.2f}"))
+
+        log_m = _fit_wls(formula.replace("dropout_rate ~", "np.log(dropout_rate) ~"), primary)
+        rows.append(_coef_row(log_m, label, "log(dropout_rate) outcome (coef ~ proportional change)"))
+    return pd.DataFrame(rows)
+
+
+def _slope_table(model, group_col: str, groups: list[str]) -> pd.DataFrame:
+    rows = []
+    for g in groups:
+        term = f"C({group_col})[{g}]:teen_fertility_rate"
+        lo, hi = model.conf_int().loc[term]
+        rows.append({"group_variable": group_col, "group": g, "slope": model.params[term],
+                     "cluster_se": model.bse[term], "ci_low": lo, "ci_high": hi,
+                     "p_value": model.pvalues[term]})
+    return pd.DataFrame(rows)
+
+
+def _equal_slopes_test(model, group_col: str, groups: list[str]) -> dict:
+    """Joint Wald test that every group's fertility slope equals the first
+    group's (H0: no heterogeneity in the association across groups)."""
+    names = list(model.params.index)
+    terms = [f"C({group_col})[{g}]:teen_fertility_rate" for g in groups]
+    R = np.zeros((len(terms) - 1, len(names)))
+    for i, t in enumerate(terms[1:]):
+        R[i, names.index(t)] = 1
+        R[i, names.index(terms[0])] = -1
+    w = model.wald_test(R, use_f=True, scalar=True)
+    return {"group_variable": group_col, "test": "equal fertility slopes (Wald F, clustered)",
+            "statistic": float(w.statistic), "df_num": int(w.df_num), "df_denom": float(w.df_denom),
+            "p_value": float(w.pvalue)}
+
+
+def phase3_heterogeneity(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """RQ4 / H2: does the fertility-dropout association differ by
+    race/ethnicity or by region? Fits group-specific fertility slopes
+    (each slope read directly off the model) with the other M4 controls,
+    then tests equality of slopes jointly."""
+    sub = association_sample(df)
+    regions = sorted(sub["census_region"].unique())
+
+    race_model = _fit_wls(
+        f"dropout_rate ~ C(race_ethnicity) + C(race_ethnicity):teen_fertility_rate + {COVARIATES} + C(census_region)",
+        sub,
+    )
+    region_model = _fit_wls(
+        f"dropout_rate ~ C(census_region) + C(census_region):teen_fertility_rate + {COVARIATES} + C(race_ethnicity)",
+        sub,
+    )
+    race_n = sub["race_ethnicity"].value_counts()
+    region_n = sub["census_region"].value_counts()
+
+    slopes = pd.concat([
+        _slope_table(race_model, "race_ethnicity", PRIMARY_RACES).assign(
+            n=lambda d: d["group"].map(race_n)),
+        _slope_table(region_model, "census_region", regions).assign(
+            n=lambda d: d["group"].map(region_n)),
+    ], ignore_index=True)
+    tests = pd.DataFrame([
+        _equal_slopes_test(race_model, "race_ethnicity", PRIMARY_RACES),
+        _equal_slopes_test(region_model, "census_region", regions),
+    ])
+    return slopes, tests
 
 
 def phase3_vif(df: pd.DataFrame) -> pd.DataFrame:
-    """Multicollinearity check for the multivariable regression's predictors
-    (design doc sec. 7.3/11: "avoid adding many correlated socioeconomic
-    variables" / "may be highly correlated with one another"). Computed on
-    the same primary regression sample as phase3_regressions (Pacific
-    Islander excluded). A VIF above 5 flags a predictor whose standard
-    error is inflated by collinearity with the others in the model --
-    above 10 is a stronger warning; below that, the multivariable
-    regression's coefficients can be interpreted without a collinearity
-    caveat."""
-    sub = _regression_sample(df, include_sparse=False)
+    """Multicollinearity check for the primary model's predictors (design
+    doc sec. 7.3/11). VIF > 5 flags a predictor whose SE is inflated by
+    collinearity; below that, coefficients can be read without a
+    collinearity caveat."""
+    sub = association_sample(df)
     design = dmatrix(
-        "teen_fertility_rate + poverty_rate + insurance_rate + C(census_region)",
+        f"teen_fertility_rate + {COVARIATES} + C(census_region)",
         data=sub, return_type="dataframe",
     )
     vifs = pd.DataFrame({
@@ -249,37 +428,30 @@ def phase3_vif(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _fit_primary_wls(df: pd.DataFrame):
-    """Refits the same primary multivariable WLS model used in
-    phase3_regressions (Pacific Islander excluded, weighted by
-    1/dropout_se^2) -- shared by the diagnostic tests and diagnostic plots
-    below so both look at exactly the model reported in Findings."""
-    sub = _regression_sample(df, include_sparse=False)
-    sub["weight"] = 1.0 / (sub["dropout_se"] ** 2)
+    """The primary (M3) WLS model without clustering, for diagnostics --
+    residual diagnostics don't depend on the SE estimator."""
+    sub = association_sample(df)
     model = smf.wls(MULTIVARIABLE_FORMULA, data=sub, weights=sub["weight"]).fit()
     return model, sub
 
 
 def phase3_diagnostic_tests(df: pd.DataFrame) -> pd.DataFrame:
-    """Formal tests backing up the residual diagnostic plots (design doc
-    sec. 10.3: regression diagnostics) -- a plot alone doesn't say whether a
-    pattern is significant or just noise at this sample size.
-
-    Shapiro-Wilk tests whether the studentized residuals are consistent
-    with a normal distribution (needed for the regression's p-values/CIs
-    to be trustworthy at this n). Breusch-Pagan tests for heteroscedasticity
-    remaining in the *response* residuals even after the model has already
-    been weighted by 1/dropout_se^2 -- i.e. whether the inverse-variance
-    weighting fully accounts for the unequal reliability across state-race
-    cells, or whether some residual heteroscedasticity is left over."""
+    """Formal residual diagnostics for the primary WLS model, all on the
+    *weighted* (whitened) scale -- the scale the model's assumptions are
+    stated on. Testing raw residuals of a WLS fit for heteroscedasticity
+    just rediscovers the unequal sampling variance the weights already
+    model (raw-residual Breusch-Pagan p = 0.04 vs. weighted p ~ 0.6)."""
     model, _ = _fit_primary_wls(df)
-    resid_std = OLSInfluence(model).resid_studentized_internal
+    resid_std = whitened_influence(model).resid_studentized_internal
 
     shapiro_stat, shapiro_p = stats.shapiro(resid_std)
-    bp_stat, bp_p, _, _ = het_breuschpagan(model.resid, model.model.exog)
+    bp_stat, bp_p, _, _ = het_breuschpagan(model.wresid, model.model.exog)
 
     return pd.DataFrame([
-        {"test": "Shapiro-Wilk (normality of residuals)", "statistic": shapiro_stat, "p_value": shapiro_p},
-        {"test": "Breusch-Pagan (homoscedasticity)", "statistic": bp_stat, "p_value": bp_p},
+        {"test": "Shapiro-Wilk (normality of weighted studentized residuals)",
+         "statistic": shapiro_stat, "p_value": shapiro_p},
+        {"test": "Breusch-Pagan (homoscedasticity of weighted residuals)",
+         "statistic": bp_stat, "p_value": bp_p},
     ])
 
 
@@ -295,7 +467,7 @@ def figure_distributions_by_race(
     which is what actually shows skew, spread, and outliers at a glance.
 
     dropout_rate and teen_fertility_rate are genuinely race-specific, so
-    they're shown as one box per race. poverty_rate and insurance_rate are
+    they're shown as one box per race. poverty_rate and uninsured_rate are
     NOT race-specific: they're state-level ACS estimates, merged onto every
     race row within a state (verified -- e.g. every California row has the
     identical poverty_rate regardless of race_ethnicity). Faceting those by
@@ -321,7 +493,7 @@ def figure_distributions_by_race(
     ]
     state_level_vars = [
         ("poverty_rate", "Child poverty rate (%)"),
-        ("insurance_rate", "Child health-insurance rate (%)"),
+        ("uninsured_rate", "Child uninsured rate (%, under 19)"),
     ]
 
     fig, axes = plt.subplots(2, 2, figsize=(11, 8.5))
@@ -384,7 +556,7 @@ def figure_regression_diagnostics(df: pd.DataFrame, out_path: str = "figures/pha
     Breusch-Pagan tests backing up what these plots show visually."""
     set_style()
     model, _ = _fit_primary_wls(df)
-    influence = OLSInfluence(model)
+    influence = whitened_influence(model)
     fitted = model.fittedvalues
     resid_std = influence.resid_studentized_internal
 
@@ -414,38 +586,70 @@ def figure_regression_diagnostics(df: pd.DataFrame, out_path: str = "figures/pha
 
 
 def figure_correlation_scatter(df: pd.DataFrame, out_path: str = "figures/phase3_fertility_dropout_scatter.png"):
-    """The paper's likely Figure 1: the core RQ3 relationship. One point per
-    state x race-group cell, colored by race, restricted to rows where both
-    measures are reliable (same population as phase3_correlation)."""
+    """The paper's likely Figure 1: the core RQ3 relationship on the primary
+    analytic sample (same rows as the regressions). Filled markers are
+    reliable NCES estimates, hollow markers are retained-but-unreliable ones
+    (CV 30-50%). Thin lines are within-race fits, the dashed line the
+    pooled fit -- so the reader sees the association holds within groups,
+    not only across them."""
     set_style()
-    sub = df[
-        df["race_ethnicity"].isin(FERTILITY_ELIGIBLE_RACES)
-        & (df["dropout_quality_flag"] == "reliable")
-        & (df["natality_quality_flag"] == "reliable")
-    ][["dropout_rate", "teen_fertility_rate", "race_ethnicity"]].dropna()
-
+    sub = association_sample(df)
     r, p = stats.pearsonr(sub["dropout_rate"], sub["teen_fertility_rate"])
     slope, intercept = np.polyfit(sub["teen_fertility_rate"], sub["dropout_rate"], 1)
 
-    fig, ax = plt.subplots(figsize=(6.5, 5))
-    for race, grp in sub.groupby("race_ethnicity"):
-        ax.scatter(
-            grp["teen_fertility_rate"], grp["dropout_rate"],
-            label=race, color=RACE_PALETTE.get(race, "#333333"),
-            alpha=0.75, s=45, edgecolor="white", linewidth=0.5,
-        )
+    fig, ax = plt.subplots(figsize=(7, 5.2))
+    for race in PRIMARY_RACES:
+        grp = sub[sub["race_ethnicity"] == race]
+        color = RACE_PALETTE.get(race, "#333333")
+        reliable = grp["dropout_quality_flag"] == "reliable"
+        ax.scatter(grp.loc[reliable, "teen_fertility_rate"], grp.loc[reliable, "dropout_rate"],
+                   label=race, color=color, alpha=0.8, s=40, edgecolor="white", linewidth=0.5)
+        ax.scatter(grp.loc[~reliable, "teen_fertility_rate"], grp.loc[~reliable, "dropout_rate"],
+                   facecolor="none", edgecolor=color, alpha=0.8, s=40, linewidth=1.0)
+        g_slope, g_int = np.polyfit(grp["teen_fertility_rate"], grp["dropout_rate"], 1)
+        xs = np.linspace(grp["teen_fertility_rate"].min(), grp["teen_fertility_rate"].max(), 50)
+        ax.plot(xs, g_slope * xs + g_int, color=color, linewidth=1.1, alpha=0.9)
     x_line = np.linspace(sub["teen_fertility_rate"].min(), sub["teen_fertility_rate"].max(), 100)
     ax.plot(x_line, slope * x_line + intercept, color="black", linewidth=1.5, linestyle="--", zorder=1)
 
-    ax.set_xlabel("Teen fertility rate (births per 1,000 women aged 15-19)")
-    ax.set_ylabel("High-school status dropout rate (%)")
-    ax.set_title("Teen fertility rate and dropout rate, by state and race/ethnicity")
+    ax.set_xlabel("Teen fertility rate (births per 1,000 females aged 15-19)")
+    ax.set_ylabel("High-school status dropout rate, ages 16-24 (%)")
+    ax.set_title("Teen fertility and status dropout, by state and race/ethnicity")
+    p_text = "p < 0.001" if p < 0.001 else f"p = {p:.3f}"
     ax.text(
-        0.03, 0.97, f"Pearson r = {r:.2f}\np < 0.001\nn = {len(sub)}",
-        transform=ax.transAxes, va="top", ha="left",
+        0.03, 0.97, f"Pooled Pearson r = {r:.2f}\n{p_text}\nn = {len(sub)} cells, {sub['fips'].nunique()} states\n"
+                    "hollow = unreliable (CV 30-50%)",
+        transform=ax.transAxes, va="top", ha="left", fontsize=9,
         bbox=dict(boxstyle="round", facecolor="white", edgecolor="#cccccc", alpha=0.9),
     )
     ax.legend(loc="lower right", ncol=1, markerscale=1.2)
+    fig.savefig(out_path)
+    plt.close(fig)
+
+
+def figure_heterogeneity_slopes(slopes: pd.DataFrame, tests: pd.DataFrame,
+                                out_path: str = "figures/phase3_slopes_by_group.png"):
+    """RQ4 coefficient plot: group-specific fertility slopes with 95% CIs
+    (state-clustered), race panel and region panel, each annotated with
+    the joint equal-slopes test."""
+    set_style()
+    fig, axes = plt.subplots(1, 2, figsize=(11, 3.8), sharex=True)
+    for ax, group_col, title in [(axes[0], "race_ethnicity", "By race/ethnicity"),
+                                 (axes[1], "census_region", "By Census region")]:
+        d = slopes[slopes["group_variable"] == group_col].iloc[::-1]
+        colors = [RACE_PALETTE.get(g, "#555555") for g in d["group"]]
+        y = np.arange(len(d))
+        ax.errorbar(d["slope"], y, xerr=[d["slope"] - d["ci_low"], d["ci_high"] - d["slope"]],
+                    fmt="none", ecolor="#555555", elinewidth=1.2, capsize=3)
+        ax.scatter(d["slope"], y, color=colors, s=45, zorder=3, edgecolor="white")
+        ax.set_yticks(y)
+        ax.set_yticklabels([f"{g} (n={n})" for g, n in zip(d["group"], d["n"])])
+        ax.axvline(0, color="#999999", linewidth=0.8, linestyle=":")
+        t = tests[tests["group_variable"] == group_col].iloc[0]
+        ax.set_title(f"{title}\nequal-slopes test: F={t['statistic']:.2f}, p={t['p_value']:.3f}", fontsize=11)
+        ax.set_xlabel("Dropout pp per +1 birth per 1,000 (95% CI)")
+    fig.suptitle("Heterogeneity of the fertility-dropout association (RQ4)",
+                 fontsize=13, fontweight="bold", y=1.04)
     fig.savefig(out_path)
     plt.close(fig)
 
@@ -585,22 +789,12 @@ def figure_disparity_map(gaps: pd.DataFrame, comparison: str, title: str, out_pa
     return html_path
 
 
-def _format_regression_summary(results: dict) -> str:
-    lines = []
-    for label, r in results.items():
-        lines.append(f"\n{'='*70}\nSample: {label}  (n={r['n']})\n{'='*70}")
-        lines.append("\n--- Bivariate OLS: dropout_rate ~ teen_fertility_rate ---")
-        lines.append(str(r["bivariate_ols"].summary()))
-        lines.append("\n--- Multivariable OLS (unweighted) ---")
-        lines.append(str(r["multivariable_ols"].summary()))
-        lines.append("\n--- Multivariable WLS (weighted by 1/dropout_se^2) -- TRUST THIS ONE ---")
-        lines.append(str(r["multivariable_wls"].summary()))
-        lines.append("\n--- Multivariable WLS, standard errors clustered by state ---")
-        lines.append("(accounts for up to 8 non-independent race-group rows per state)")
-        lines.append(str(r["multivariable_wls_clustered"].summary()))
-        lines.append(f"\n--- Sensitivity: WLS excluding {r['n_high_leverage_excluded']} high-leverage points "
-                      f"(Cook's distance > 4/n) ---")
-        lines.append(str(r["multivariable_wls_excl_high_leverage"].summary()))
+def _format_regression_summary(models: dict) -> str:
+    lines = ["Full model output for the regression ladder (tables/phase3_regression_ladder.csv).",
+             "All models: WLS weighted by 1/dropout_se^2, standard errors clustered by state."]
+    for label, m in models.items():
+        lines.append(f"\n{'='*70}\n{label}: {m.model.formula}\n{'='*70}")
+        lines.append(str(m.summary()))
     return "\n".join(lines)
 
 
@@ -648,12 +842,25 @@ if __name__ == "__main__":
     print("\n" + correlation.to_string(index=False))
     figure_correlation_scatter(df)
 
-    regressions = phase3_regressions(df)
+    ladder, ladder_models = phase3_regression_ladder(df)
+    ladder.to_csv("tables/phase3_regression_ladder.csv", index=False)
     with open("results/phase3_regression_summary.txt", "w") as f:
-        f.write(_format_regression_summary(regressions))
-    print(f"\nRegression n (primary, Pacific Islander excluded): {regressions['primary']['n']}")
-    print(f"Regression n (with sparse race included): {regressions['with_sparse_race']['n']}")
-    print("\nFull output -> results/phase3_regression_summary.txt")
+        f.write(_format_regression_summary(ladder_models))
+    print("\nRegression ladder (fertility coefficient, clustered SE):")
+    print(ladder.round(4).to_string(index=False))
+
+    robustness = phase3_robustness(df)
+    robustness.to_csv("tables/phase3_robustness.csv", index=False)
+    print("\nRobustness of the fertility coefficient:")
+    print(robustness.round(4).to_string(index=False))
+
+    slopes, slope_tests = phase3_heterogeneity(df)
+    slopes.to_csv("tables/phase3_heterogeneity_slopes.csv", index=False)
+    slope_tests.to_csv("tables/phase3_heterogeneity_tests.csv", index=False)
+    print("\nRQ4 group-specific fertility slopes:")
+    print(slopes.round(4).to_string(index=False))
+    print(slope_tests.round(4).to_string(index=False))
+    figure_heterogeneity_slopes(slopes, slope_tests)
 
     vif = phase3_vif(df)
     vif.to_csv("tables/phase3_vif.csv", index=False)
@@ -669,13 +876,4 @@ if __name__ == "__main__":
     print(diagnostic_tests.to_string(index=False))
     figure_regression_diagnostics(df)
 
-    print("\nTables -> tables/phase1_summary_statistics.csv, tables/phase2_racial_disparity_gaps.csv,")
-    print("          tables/phase2_state_rankings.csv, tables/phase3_correlation.csv, tables/phase3_vif.csv,")
-    print("          tables/phase3_diagnostic_tests.csv")
-    print(f"n high-leverage points excluded in sensitivity check (primary): "
-          f"{regressions['primary']['n_high_leverage_excluded']}")
-    print("Figures -> figures/phase1_distributions_by_race.png, figures/phase2_disparity_gaps.png,")
-    print("           figures/phase2_map_dropout_rate.png, figures/phase2_map_hispanic_white_gap.png,")
-    print("           figures/phase2_map_black_white_gap.png, figures/phase2_map_fertility_rate_by_race.png,")
-    print("           figures/phase3_fertility_dropout_scatter.png,")
-    print("           figures/phase3_regression_diagnostics.png")
+    print("\nOutputs -> tables/, results/, figures/ (see README 'Running the pipeline')")
