@@ -82,6 +82,7 @@ and cannot answer:
 │   ├── data_cleaning.py         # per-source cleaning + final merge
 │   ├── plotting.py              # shared figure style/palette
 │   ├── analysis.py              # data quality, disparity, and association analysis
+│   ├── robustness.py            # sensitivity checks for the association (Oster, bootstrap, spatial, LOO, R² decomposition)
 │   └── modeling.py              # machine learning + fairness/explainability
 ├── figures/, tables/, results/  # generated outputs (run the scripts to populate)
 ├── docs/
@@ -117,7 +118,15 @@ python3 src/analysis.py
 #    phase3_regression_diagnostics.png
 #    (each phase2_map_*.png has a companion .html with hover tooltips)
 
-# 3. Machine learning + fairness/explainability (~2 min)
+# 3. Sensitivity analyses for the association (~5 s)
+python3 src/robustness.py
+# -> tables/phase3_sensitivity_oster.csv, phase3_wild_cluster_bootstrap.csv,
+#    phase3_spatial_moran.csv, phase3_conley_se.csv,
+#    phase3_leave_one_out_summary.csv, phase3_leave_one_out_detail.csv,
+#    phase3_r2_decomposition.csv
+# -> figures/phase3_leave_one_state_out.png
+
+# 4. Machine learning + fairness/explainability (~2 min)
 python3 src/modeling.py
 # -> results/phase4_model_comparison.csv, phase4_h4_feature_value.csv,
 #    phase5_fairness_report.csv, phase5_shap_importance.csv
@@ -177,6 +186,32 @@ including Pacific Islander, dropping the 19 influential cells (Cook's D >
 stays positive and significant with a log-dropout outcome (p < 0.001).
 The race-adjusted M4 coefficient is positive in every variant (0.064-0.137, p ≤ 0.003) except the log-outcome specification,
 where it is borderline (p = 0.052).
+
+**Sensitivity analyses** — `src/robustness.py`, `tables/phase3_*`:
+
+- *Small-cluster inference.* Wild cluster bootstrap-t p-values (Webb
+  weights, 9,999 draws, null imposed) match the asymptotic clustered ones:
+  M3 p < 0.001, M4 p = 0.0015, M5 p = 0.034.
+- *Unobserved confounding (Oster δ).* Proportional selection on
+  unobservables would have to be 2.0-4.3× as strong as the observed
+  controls to explain away the M3 coefficient, and 1.8× for the
+  within-state M5. Against race fixed effects alone (M4) δ = 0.3-0.5 —
+  i.e. the M4 estimate on its own is *not* robust by Oster's benchmark;
+  the within-state M5 estimate is.
+- *Spatial dependence.* State-level residuals of M3/M4 are spatially
+  clustered (Moran's I = 0.21, p = 0.005, 5 nearest neighbours), but
+  Conley spatial-HAC SEs (500-1,500 km) are no larger than the
+  state-clustered ones, and the within-state M5 residuals show no spatial
+  pattern (I = −0.02, p = 0.97).
+- *Leave-one-out.* Dropping any single state moves the coefficient within
+  0.149-0.159 (M3), 0.064-0.095 (M4) and 0.055-0.081 (M5); M3 and M4 stay
+  significant in every refit. M5 is the fragile one: it loses significance
+  without Texas (p = 0.11, coefficient unchanged) and in 3 of 5
+  drop-one-race-group refits (coefficient 0.046-0.106), so it should be
+  presented as supporting, not primary, evidence.
+- *Explained variance (RQ5).* A Shapley decomposition of M4's R² (0.68)
+  attributes 39% to teen fertility, 33% to race/ethnicity, 13% to child
+  poverty, 10% to region and 4% to child uninsurance.
 
 **Heterogeneity (RQ4, H2)** — `tables/phase3_heterogeneity_*.csv`,
 `figures/phase3_slopes_by_group.png`. Fertility slopes differ across race

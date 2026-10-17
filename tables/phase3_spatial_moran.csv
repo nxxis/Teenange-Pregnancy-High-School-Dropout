@@ -1,0 +1,6 @@
+model,residual,n_states,morans_I,expected_I,p_permutation,weights
+M3,White cells only,51,0.11082260070183003,-0.02,0.08640864086408641,"5-nearest neighbors, row-standardized"
+M3,state mean residual (weighted),51,0.20499722484355606,-0.02,0.0049004900490049,"5-nearest neighbors, row-standardized"
+M4,White cells only,51,0.09187455082425594,-0.02,0.14511451145114512,"5-nearest neighbors, row-standardized"
+M4,state mean residual (weighted),51,0.20640332041981824,-0.02,0.0053005300530053,"5-nearest neighbors, row-standardized"
+M5,White cells only,51,-0.017113084374866125,-0.02,0.9674967496749675,"5-nearest neighbors, row-standardized"
